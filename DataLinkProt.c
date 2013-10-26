@@ -105,6 +105,7 @@ int llwrite(int fd, unsigned char * buffer, unsigned int length) {
 
 	transmitData(fd, stuffed_buf, stuffed_length);
 	if (recReceiverResp(fd, stuffed_buf, stuffed_length, bcc2) == -1) {
+		printf("recReceiverResp:\n");
 		return -1;
 	}
 
@@ -193,7 +194,7 @@ int llread(int fd, unsigned char *buffer) {
 						if (bcc2_rec == bcc2_act) {
 							link_props.sequenceNumber = NEXT_DATA_INDEX(link_props.sequenceNumber);
 							sendRR(fd);
-							return data_size;
+							return (data_size-1);
 						} else {
 							if (ctrl != GET_CTRL_DATA_INDEX(link_props.sequenceNumber)) {
 								sendRR(fd);
@@ -323,6 +324,7 @@ struct sigaction installAlarmListener() {
 }
 
 int uninstallAlarmListener(struct sigaction old_sa) {
+	alarm(0);
 	sigaction(SIGALRM, &old_sa, NULL);
 	return 0;
 }

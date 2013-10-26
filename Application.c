@@ -51,25 +51,38 @@ int runApplication() {
 int receiveFile() {
 	unsigned char *dest_folder = cliAskDestination();
 	appProps.serialPortFileDescriptor = llopen(appProps.filePort, appProps.status);
+	printf("before start\n");
 
 	receiveCtrlPacket(CTRL_START);
 
+	printf("after start\n");
 	unsigned char file_path[PATH_MAX];
-	sprintf("%s/%s", (char *) dest_folder, appProps.fileName);
-	openFile(file_path, RECEIVER);
+	if (sprintf((char *)file_path, "%s/%s", (char *) dest_folder, appProps.fileName) < 0) {
+		printf("sprintf error!\n");
+		return -1;
+	}
+
+	printf("%s\n", file_path);
+
+	if ((appProps.fileDescriptor = openFile(file_path, RECEIVER)) == -1) {
+		perror("open()");
+		return -1;
+	}
 
 	int ret_val = 0;
 	int last_buf_size = 0;
 	unsigned char buffer[MAX_APP_DATAPACKET_SIZE];
-
+	printf("ciclo\n");
 	while(1) {
 		ret_val = llread(appProps.serialPortFileDescriptor, buffer);
+		printf("ret_val: %d\n", ret_val);
 		if (ret_val == DISCONNECTED) {
 			verifyDataIntegrity(buffer, last_buf_size);
 		}
 		else {
 			last_buf_size = ret_val;
 			processDataPacket(buffer);
+			printf("processed packet\n");
 		}
 	}
 
@@ -92,7 +105,7 @@ int sendFile() {
 	
 	int stop = 0;
 	while(!stop) {
-		unsigned char packet[appProps.dataPacketSize];
+		unsigned char *packet = malloc(appProps.dataPacketSize);
 		unsigned int size = 0;
 		unsigned int i = 0;
 		for (; i < appProps.dataPacketSize; i++) {
@@ -100,8 +113,9 @@ int sendFile() {
 				stop = -1;
 			}
 
-			sendDataPacket(packet, size);
+			int xx = sendDataPacket(packet, size);
 			printf("packet number: %d\n", i);
+			printf("xx: %d\n", xx);
 		}
 	}
 
@@ -220,7 +234,7 @@ unsigned char *cliAskSourceFile() {
 }
 
 int isFileValid(unsigned char *path) {
-	unsigned char tmp[PATH_MAX];
+	//unsigned char tmp[PATH_MAX];
 	struct stat file_stat;
 /*
 	if (realpath(path, tmp) == NULL) {
@@ -267,7 +281,7 @@ int openFile(unsigned char *tmp, int status) {
 }
 
 int sendCtrlPacket(int flag) {
-	unsigned char packet[MAX_APP_DATAPACKET_SIZE];
+	unsigned char packet[MAX_APP_DATAPACKET_SIZE] = {0};
 	unsigned int size = 0;
 
 	// add ctrl
@@ -287,8 +301,15 @@ int sendCtrlPacket(int flag) {
 	packet[size++] = type;
 	length = strlen((char *) appProps.fileName) + 1;
 	packet[size++] = length;
-	strcat((char *) packet, (char *) appProps.fileName);
-	size += strlen((char *) appProps.fileName);
+	memcpy(&packet[size], &appProps.fileName, strlen((char *) appProps.fileName) + 1);
+	//strcat((char *) packet, (char *) appProps.fileName);
+	size += strlen((char *) appProps.fileName) + 1;
+
+	int a=0;
+	for (a=0; a < size; a++) {
+		printf("%X\n", packet[a]);
+	}
+	printf("%d\n", size);
 
 	return llwrite(appProps.serialPortFileDescriptor, packet, size);
 }
@@ -302,24 +323,38 @@ int receiveCtrlPacket(int flag) {
 		return -1;
 	}
 
+	int a=0;
+	for (a=0; a < size; a++) {
+		printf("%X\n", packet[a]);
+	}
+
+	printf("after read\n");
+
 	if (packet[i] != flag) {
 		printf("Error receiving initial packet\n");
 		return -1;
 	}
 
 	i++;
-
+	printf("%d\n", i);
+	printf("%d\n", size);
+	printf("before while\n");
+	printf("%X\n", packet[i]);
 	while(i < size) {
+		
+
 		switch(packet[i]) {
 			case T_FILE_SIZE:
+			printf("file size\n");
 			i++;
 			memcpy(&appProps.fileSize, &packet[i + 1], packet[i]);
 			i += sizeof(unsigned int) + 1;
 			break;
 			case T_FILE_NAME:
+			printf("file name\n");
 			i++;
 			memcpy(&appProps.fileName, &packet[i + 1], packet[i]);
-			i += strlen((char *) appProps.fileName) + 1;
+			i += strlen((char *) appProps.fileName) + 2;
 			break;
 		}
 	}
