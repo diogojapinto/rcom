@@ -190,6 +190,7 @@ int llread(int fd, unsigned char *buffer) {
 						unsigned char bcc2_rec = buffer[data_size - 1];
 						unsigned char bcc2_act = 0;
 						genBCC2(buffer, data_size-1, &bcc2_act);
+						printf("data_size: %d\n", data_size);
 						printf("before bcc2\n");
 						if (bcc2_rec == bcc2_act) {
 							link_props.sequenceNumber = NEXT_DATA_INDEX(link_props.sequenceNumber);
@@ -201,6 +202,7 @@ int llread(int fd, unsigned char *buffer) {
 							} else {
 								sendREJ(fd);
 							}
+							//data_counter = 0; //reset para receber nova trama
 						}
 					}
 				}

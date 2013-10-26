@@ -77,14 +77,21 @@ int receiveFile() {
 		ret_val = llread(appProps.serialPortFileDescriptor, buffer);
 		printf("ret_val: %d\n", ret_val);
 		if (ret_val == DISCONNECTED) {
-			verifyDataIntegrity(buffer, last_buf_size);
+			printf("verify\n");
+			if (verifyDataIntegrity(buffer, last_buf_size) == N_VALID) {
+				printf("Errors during transmission. File Invalid!\n");
+			}
+			break;
 		}
 		else {
+			printf("pre process\n");
 			last_buf_size = ret_val;
 			processDataPacket(buffer);
 			printf("processed packet\n");
 		}
 	}
+	
+	close(appProps.fileDescriptor);
 
 	llclose(appProps.serialPortFileDescriptor, appProps.status);
 
@@ -104,19 +111,20 @@ int sendFile() {
 	sendCtrlPacket(CTRL_START);
 	
 	int stop = 0;
+	unsigned char *packet = malloc(appProps.dataPacketSize);
+	unsigned int size = 0;
+	unsigned int i = 0;
 	while(!stop) {
-		unsigned char *packet = malloc(appProps.dataPacketSize);
-		unsigned int size = 0;
-		unsigned int i = 0;
-		for (; i < appProps.dataPacketSize; i++) {
-			if ((size = read(appProps.fileDescriptor, packet, appProps.dataPacketSize) != appProps.dataPacketSize)) {
-				stop = -1;
-			}
 
-			int xx = sendDataPacket(packet, size);
-			printf("packet number: %d\n", i);
-			printf("xx: %d\n", xx);
+		//for (; i < appProps.dataPacketSize; i++) {
+		if ((size = read(appProps.fileDescriptor, packet, appProps.dataPacketSize)) != appProps.dataPacketSize) {
+			stop = -1;
 		}
+		printf("data packet size: %d\n", appProps.dataPacketSize);
+		printf("size before: %d\n", size);
+		int xx = sendDataPacket(packet, size);
+		printf("xx: %d\n", xx);
+		//}
 	}
 
 	sendCtrlPacket(CTRL_END);
@@ -364,16 +372,21 @@ int receiveCtrlPacket(int flag) {
 int sendDataPacket(unsigned char *data, unsigned int size) {
 	unsigned char packet[MAX_APP_DATAPACKET_SIZE];
 	unsigned int i = 0;
+	
+	printf("%d\n", size);
 
 	packet[i++] = CTRL_DATA;
 	packet[i++] = appProps.currSeqNum++	;
 
 	uint16_t oct_number = size;
+	printf("oct_number send: %d\n", oct_number);
 
-	memcpy(&packet[i], &oct_number, 2);
-	i+=2;
+	memcpy(&packet[i], &oct_number, 1);
+	i+=1;
 
 	memcpy(&packet[i], data, oct_number);
+
+	printf("size writen: %d\n", size+4);
 
 	return llwrite(appProps.serialPortFileDescriptor, packet, (size + 4));
 }
@@ -382,24 +395,40 @@ int processDataPacket(unsigned char *packet) {
 
 	unsigned int i = 0;
 	unsigned int ctrl = 0;
-	unsigned int oct_number = 0;
+	uint16_t oct_number = 0;
 	unsigned char *data = malloc(appProps.dataPacketSize);
+	
+	printf("bfore memset\n");
+
 	memset(data, 0, appProps.dataPacketSize);
 
 	ctrl = packet[i++];
 	
+	printf("before if\n\n");
+
+
 	if (ctrl == CTRL_DATA) {
 
-		memcpy(&oct_number, &packet[i], 2);
-		i+=2;
-		memcpy(&data, &packet[i], oct_number);
-		writeFile(data, oct_number);
-	}
+		printf("memcpy 1\n");
+		memcpy(&oct_number, &packet[i], 1);
+		printf("oct_number: %d\n", oct_number);
+		i++;
 
+		printf("memcpy 2\n");
+		memcpy(&data, &packet[i], oct_number);
+		printf("write\n");
+		if (writeFile(data, oct_number) == -1) {
+			printf("erro writing file\n");
+			return -1;
+		}
+		printf("write out\n");
+	}
+	printf("return\n");
 	return 0;
 }
 
 int writeFile(unsigned char *data, unsigned int oct_number) {
+
 
 	if (write(appProps.fileDescriptor, data, oct_number) != oct_number) {
 		return -1;
