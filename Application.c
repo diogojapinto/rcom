@@ -51,7 +51,10 @@ int runApplication() {
 
 int receiveFile() {
 	unsigned char *dest_folder = cliAskDestination();
+	printf("\nWaiting for connection!\n");
+
 	appProps.serialPortFileDescriptor = llopen(appProps.filePort, appProps.status);
+	
 	printf("before start\n");
 
 	receiveCtrlPacket(CTRL_START);
@@ -156,11 +159,13 @@ int cliAskStatus() {
 	printf("(3) Exit application\n\n");
 
 	int c = -1;
-	scanf("%d", &c);
+	scanf(" %d", &c);
+	
 
 	while(c != TRANSMITTER && c != RECEIVER && c != EXIT_APP) {
+		c = -1;
 		printf("\nInvalid input. Please choose a valid one!\n\n");
-		scanf("%d", &c);
+		scanf(" %d", &c);
 	}
 
 	return c;
@@ -170,11 +175,11 @@ int cliAskSerialPort() {
 	printf("\nChoose a serial port ('0' - '4')\n\n");
 
 	int c = -1;
-	scanf("%d", &c);
+	scanf(" %d", &c);
 
 	while(c < 0 || c > 4) {
 		printf("Invalid input. Please choose a valid serial port number\n");
-		scanf("%d", &c);
+		scanf(" %d", &c);
 	}
 
 	return 0;
@@ -183,11 +188,11 @@ int cliAskSerialPort() {
 int cliAskMaxPacketSize() {
 	unsigned int max_bytes = 0;
 	printf("Insert the maximum number of data bytes per frame \n(min value: 1\nmax value: %d)\n", MAX_APP_DATAPACKET_SIZE);
-	scanf("%u", &max_bytes);
+	scanf(" %u", &max_bytes);
 
 	while(max_bytes < 1 || max_bytes > (MAX_APP_DATAPACKET_SIZE < appProps.fileSize * pow(2,8) ? MAX_APP_DATAPACKET_SIZE : appProps.fileSize * pow(2,8))  ) {
 		printf("Invalid number of data bytes per frame. Please input another value\n\n");
-		scanf("%u", &max_bytes);
+		scanf(" %u", &max_bytes);
 	}
 
 	return max_bytes;
@@ -197,11 +202,11 @@ unsigned char *cliAskDestination() {
 	printf("\nWhat is the path to the destination folder of the file?\n\n");
 
 	unsigned char *path = malloc(PATH_MAX);
-	scanf("%s", path);
+	scanf(" %s", path);
 
 	while (isDirectoryValid(path) != 1) {
 		printf("\nInvalid folder path. Please input a valid one!\n\n");
-		scanf("%s", path);
+		scanf(" %s", path);
 	}
 
 	return path;
@@ -232,11 +237,11 @@ unsigned char *cliAskSourceFile() {
 	printf("\nWhat is the path to the source file to be copied?\n\n");
 
 	unsigned char *path = malloc(PATH_MAX);
-	scanf("%s", path);
+	scanf(" %s", path);
 
 	while (isFileValid(path)) {
 		printf("\nInvalid file path. Please input a valid one!\n\n");
-		scanf("%s", path);
+		scanf(" %s", path);
 	}
 
 	return path;
@@ -281,11 +286,11 @@ int openFile(unsigned char *tmp, int status) {
 			printf("File already exists!\n");
 			printf("Do you want to override it?(y/n)\n");
 			char opt;
-			scanf("%c", &opt);
+			scanf(" %c", &opt);
 			opt = tolower(opt);
 			while (opt != 'y' && opt != 'n' ) {
 				printf("\nInvalid option. Please input a valid one!\n\n");
-				scanf("%c", &opt);
+				scanf(" %c", &opt);
 				opt = tolower(opt);
 			}
 
@@ -477,37 +482,44 @@ int verifyDataIntegrity(unsigned char *buffer, unsigned int size) {
 	unsigned int i = 0;
 	unsigned int ctrl = 0;
 
+	int a = 0;
+	for (a; a < size;a++) {
+		printf("%X\n", buffer[a]);
+	}
+
 	ctrl = buffer[i++];
 
 	if (ctrl != CTRL_END) {
 		return N_VALID;
 	}
 
+	unsigned int file_size = 0;
+	unsigned char file_name[MAX_STRING_SIZE] = {0};
 	while(i < size) {
 		switch(buffer[i]) {
 			case T_FILE_SIZE:
 			i++;
-			unsigned int file_size = 0;
+			printf("fsjdkf: %X\n", buffer[i]);
 			memcpy(&file_size, &buffer[i + 1], buffer[i]);
 			i += buffer[i] + 1;
-			/*if (file_size != appProps.fileSize) {
+			if (file_size != appProps.fileSize) {
 				printf("file size: %d\n", file_size);
 				printf("defined size: %d\n", appProps.fileSize);
 				return N_VALID;
-			}*/
-				break;
-				case T_FILE_NAME:
-				i++;
-				unsigned char file_name[MAX_STRING_SIZE] = {0};
-				memcpy(&file_name, &buffer[i + 1], buffer[i]);
-				i += strlen((char *) file_name) + 1;
-				if (strcmp((char *) file_name, (char *) appProps.fileName) != 0) {
-					printf("file name: %s\n", file_name);
-					printf("name defined: %s\n", appProps.fileName);
-					return N_VALID;
-				}
-				break;
 			}
+			break;
+			case T_FILE_NAME:
+			i++;
+			printf("name: %X\n", buffer[i]);
+			memcpy(&file_name, &buffer[i + 1], buffer[i]);
+			i += buffer[i] + 1;
+			if (strcmp((char *) file_name, (char *) appProps.fileName) != 0) {
+				printf("file name: %s\n", file_name);
+				printf("name defined: %s\n", appProps.fileName);
+				return N_VALID;
+			}
+			break;
 		}
-		return VALID;
 	}
+	return VALID;
+}
