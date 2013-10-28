@@ -37,9 +37,9 @@ int runApplication() {
 	appProps.status = cliAskStatus();
 	while(appProps.status != EXIT_APP) {
 		if (appProps.status == TRANSMITTER) {
-			return sendFile();
+			sendFile();
 		} else {	// is a RECEIVER
-			return receiveFile();
+			receiveFile();
 		}
 		initAppProps();
 		appProps.status = cliAskStatus();
@@ -381,8 +381,8 @@ int sendDataPacket(unsigned char *data, unsigned int size) {
 	uint16_t oct_number = size;
 	printf("oct_number send: %d\n", oct_number);
 
-	memcpy(&packet[i], &oct_number, 1);
-	i+=1;
+	memcpy(&packet[i], &oct_number, 2);
+	i+=2;
 
 	memcpy(&packet[i], data, oct_number);
 
@@ -396,6 +396,7 @@ int processDataPacket(unsigned char *packet) {
 	unsigned int i = 0;
 	unsigned int ctrl = 0;
 	uint16_t oct_number = 0;
+	unsigned int num_seq = 0;
 	unsigned char *data = malloc(appProps.dataPacketSize);
 	
 	printf("bfore memset\n");
@@ -406,13 +407,14 @@ int processDataPacket(unsigned char *packet) {
 	
 	printf("before if\n\n");
 
+	num_seq = packet[i++];
 
 	if (ctrl == CTRL_DATA) {
 
 		printf("memcpy 1\n");
-		memcpy(&oct_number, &packet[i], 1);
+		memcpy(&oct_number, &packet[i], 2);
 		printf("oct_number: %d\n", oct_number);
-		i++;
+		i+=2;
 
 		printf("memcpy 2\n");
 		memcpy(&data, &packet[i], oct_number);
