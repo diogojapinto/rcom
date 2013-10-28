@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
+#include <ctype.h>
 
 int initAppProps();
 int cliAskStatus();
@@ -276,9 +277,27 @@ int openFile(unsigned char *tmp, int status) {
 		}	
 	}
 	else if (status == RECEIVER) {
-		if ((fd = open((char *) tmp, O_CREAT | O_EXCL | O_WRONLY)) == -1) {
-			perror("open()");
-			return -1;
+		if ((fd = open((char *) tmp, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) == -1) {
+			printf("File already exists!\n");
+			printf("Do you want to override it?(y/n)\n");
+			char opt;
+			scanf("%c", &opt);
+			opt = tolower(opt);
+			while (opt != 'y' && opt != 'n' ) {
+				printf("\nInvalid option. Please input a valid one!\n\n");
+				scanf("%c", &opt);
+				opt = tolower(opt);
+			}
+
+			if (opt == 'y') {
+				if ((fd = open((char *)tmp, O_TRUNC | O_WRONLY) == -1)) {
+					perror("open()");
+					return -1;
+				}
+			}
+			else {
+				return -1;	
+			}
 		}
 	}
 	else {
@@ -386,6 +405,8 @@ int sendDataPacket(unsigned char *data, unsigned int size) {
 
 	memcpy(&packet[i], data, oct_number);
 
+	printf("%s\n", data);
+
 	printf("size writen: %d\n", size+4);
 
 	return llwrite(appProps.serialPortFileDescriptor, packet, (size + 4));
@@ -397,39 +418,51 @@ int processDataPacket(unsigned char *packet) {
 	unsigned int ctrl = 0;
 	uint16_t oct_number = 0;
 	unsigned int num_seq = 0;
-	unsigned char *data = malloc(appProps.dataPacketSize);
+	unsigned char *data;
 	
 	printf("bfore memset\n");
 
-	memset(data, 0, appProps.dataPacketSize);
+	
 
 	ctrl = packet[i++];
 	
 	printf("before if\n\n");
 
-	num_seq = packet[i++];
-
 	if (ctrl == CTRL_DATA) {
 
+		num_seq = packet[i++];
 		printf("memcpy 1\n");
 		memcpy(&oct_number, &packet[i], 2);
 		printf("oct_number: %d\n", oct_number);
 		i+=2;
 
+		if ((data = malloc(oct_number+1)) == NULL) {
+			printf("Error malloc\n");
+			return -1;
+		}
+		memset(data, 0, oct_number+1);
+		
 		printf("memcpy 2\n");
-		memcpy(&data, &packet[i], oct_number);
+		memcpy(data, &packet[i], oct_number);
+		printf("%s\n", data);
 		printf("write\n");
 		if (writeFile(data, oct_number) == -1) {
 			printf("erro writing file\n");
 			return -1;
 		}
 		printf("write out\n");
+
+		free(data);
 	}
+
+	
 	printf("return\n");
 	return 0;
 }
 
 int writeFile(unsigned char *data, unsigned int oct_number) {
+
+	
 
 
 	if (write(appProps.fileDescriptor, data, oct_number) != oct_number) {
@@ -456,21 +489,25 @@ int verifyDataIntegrity(unsigned char *buffer, unsigned int size) {
 			i++;
 			unsigned int file_size = 0;
 			memcpy(&file_size, &buffer[i + 1], buffer[i]);
-			i += sizeof(unsigned int) + 1;
-			if (file_size != appProps.fileSize) {
+			i += buffer[i] + 1;
+			/*if (file_size != appProps.fileSize) {
+				printf("file size: %d\n", file_size);
+				printf("defined size: %d\n", appProps.fileSize);
 				return N_VALID;
+			}*/
+				break;
+				case T_FILE_NAME:
+				i++;
+				unsigned char file_name[MAX_STRING_SIZE] = {0};
+				memcpy(&file_name, &buffer[i + 1], buffer[i]);
+				i += strlen((char *) file_name) + 1;
+				if (strcmp((char *) file_name, (char *) appProps.fileName) != 0) {
+					printf("file name: %s\n", file_name);
+					printf("name defined: %s\n", appProps.fileName);
+					return N_VALID;
+				}
+				break;
 			}
-			break;
-			case T_FILE_NAME:
-			i++;
-			unsigned char file_name[MAX_STRING_SIZE] = {0};
-			memcpy(&file_name, &buffer[i + 1], buffer[i]);
-			i += strlen((char *) file_name) + 1;
-			if (strcmp((char *) file_name, (char *) appProps.fileName) != 0) {
-				return N_VALID;
-			}
-			break;
 		}
+		return VALID;
 	}
-	return VALID;
-}
