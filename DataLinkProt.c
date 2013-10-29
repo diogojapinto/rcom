@@ -50,7 +50,7 @@ int genBCC2(unsigned char *buffer, unsigned int length, unsigned char *bcc2);
 int byteStuff(unsigned char *buffer, unsigned int length, unsigned char *new_buffer);
 int transmitData(int fd, unsigned char *data, unsigned int length);
 int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned char bcc2);
-
+int receiveData(int fd, unsigned char *buffer);
 int byteDestuff(unsigned char *buffer, unsigned int length, unsigned char *new_buffer);
 int sendRR(int fd);
 int sendREJ(int fd);
@@ -130,6 +130,35 @@ int llread(int fd, unsigned char *buffer) {
 		printf("Serial port is not initialized. Please run llopen() as RECEIVER before calling this function!\n");
 		return -1;
 	}
+	
+
+	return receiveData(fd, buffer);
+}
+
+int llclose(int fd, unsigned int status) {
+	if (!isInitialized) {
+		printf("Please first call llopen() to initialize the link layer!\n");
+		return -1;
+	}
+
+	if (status == TRANSMITTER) {
+		if (sendDiscSupFrame(fd, status))
+			return -1;
+		if (receiveDiscSupFrame(fd, status))
+			return -1;
+		if (sendUASupFrame(fd, status))
+			return -1;
+	}
+
+	printf("\nFinishing disconnecting process\n");
+	sleep(1);
+	if (closePortFile(fd))
+		return -1;
+
+	return 0;
+}
+
+int receiveData(int fd, unsigned char *buffer) {
 	unsigned char addr = 0;
 	unsigned char ctrl = 0;
 
@@ -164,7 +193,7 @@ int llread(int fd, unsigned char *buffer) {
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case BCC1_ST:
+				case BCC1_ST: ;
 				// code for simulating error reception at header (it will produce generate a 
 				// timeout at the sender's side)
 				int prob = rand() % 100;
@@ -232,30 +261,6 @@ int llread(int fd, unsigned char *buffer) {
 		}
 	}
 	printf("FRAME RECEIVED\n");
-
-	return 0;
-}
-
-int llclose(int fd, unsigned int status) {
-	if (!isInitialized) {
-		printf("Please first call llopen() to initialize the link layer!\n");
-		return -1;
-	}
-
-	if (status == TRANSMITTER) {
-		if (sendDiscSupFrame(fd, status))
-			return -1;
-		if (receiveDiscSupFrame(fd, status))
-			return -1;
-		if (sendUASupFrame(fd, status))
-			return -1;
-	}
-
-	printf("\nFinishing disconnecting process\n");
-	sleep(1);
-	if (closePortFile(fd))
-		return -1;
-
 	return 0;
 }
 

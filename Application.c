@@ -84,9 +84,8 @@ int receiveFile() {
 		return -1;
 	}
 
-
+	// if is the receiver, decrement the currSeqNum in relation to the sender, to keep coherence
 	appProps.currSeqNum--;
-
 
 	int ret_val = 0;
 	int last_buf_size = 0;
@@ -572,7 +571,7 @@ int sendDataPacket(unsigned char *data, unsigned int size) {
 	unsigned int i = 0;
 
 	packet[i++] = CTRL_DATA;
-	packet[i++] = appProps.currSeqNum++	% 256;
+	packet[i++] = appProps.currSeqNum % 255 + 1;
 
 	uint16_t oct_number = size;
 
@@ -590,7 +589,7 @@ int processDataPacket(unsigned char *packet) {
 	unsigned int ctrl = 0;
 	uint16_t oct_number = 0;
 	unsigned int num_seq = 0;
-	unsigned int tmp = 0;
+	int tmp = 0;
 	unsigned char *data;
 
 	ctrl = packet[i++];
@@ -598,7 +597,11 @@ int processDataPacket(unsigned char *packet) {
 	if (ctrl == CTRL_DATA) {
 
 		num_seq = packet[i++];
-		if ( (tmp = (num_seq - appProps.currSeqNum)) == 1) {
+		tmp = num_seq - appProps.currSeqNum;
+		// if this is a new index cycle:
+		if (tmp == -254)
+			tmp = 1;
+		if ( tmp == 1) {
 			memcpy(&oct_number, &packet[i], 2);
 			i+=2;
 
@@ -617,7 +620,7 @@ int processDataPacket(unsigned char *packet) {
 
 			free(data);
 		}
-		else if (tmp > 1) {
+		else {
 			hasMissPack = -1;
 		}
 	}
