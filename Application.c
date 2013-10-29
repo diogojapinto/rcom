@@ -38,6 +38,7 @@ int writeFile(unsigned char *data, unsigned int oct_number);
 int verifyDataIntegrity(unsigned char *buffer, unsigned int size);
 
 applicationLayer_t appProps;
+int hasMissPack = 0;
 
 int runApplication() {
 	initAppProps();
@@ -82,6 +83,11 @@ int receiveFile() {
 	if ((appProps.fileDescriptor = openFile(file_path, RECEIVER)) == -1) {
 		return -1;
 	}
+
+
+	appProps.currSeqNum--;
+
+
 	int ret_val = 0;
 	int last_buf_size = 0;
 	unsigned char buffer[MAX_APP_DATAPACKET_SIZE];
@@ -100,6 +106,11 @@ int receiveFile() {
 	}
 	
 	close(appProps.fileDescriptor);
+
+	if (hasMissPack) {
+		printf("Missing data. File being deleted, please try again!");
+		unlink((char *)file_path);
+	}
 
 	llclose(appProps.serialPortFileDescriptor, appProps.status);
 
@@ -561,7 +572,7 @@ int sendDataPacket(unsigned char *data, unsigned int size) {
 	unsigned int i = 0;
 
 	packet[i++] = CTRL_DATA;
-	packet[i++] = appProps.currSeqNum++	% 255;
+	packet[i++] = appProps.currSeqNum++	% 256;
 
 	uint16_t oct_number = size;
 
@@ -579,6 +590,7 @@ int processDataPacket(unsigned char *packet) {
 	unsigned int ctrl = 0;
 	uint16_t oct_number = 0;
 	unsigned int num_seq = 0;
+	unsigned int tmp = 0;
 	unsigned char *data;
 
 	ctrl = packet[i++];
@@ -586,22 +598,28 @@ int processDataPacket(unsigned char *packet) {
 	if (ctrl == CTRL_DATA) {
 
 		num_seq = packet[i++];
-		memcpy(&oct_number, &packet[i], 2);
-		i+=2;
+		if ( (tmp = (num_seq - appProps.currSeqNum)) == 1) {
+			memcpy(&oct_number, &packet[i], 2);
+			i+=2;
 
-		if ((data = malloc(oct_number+1)) == NULL) {
-			printf("Error malloc\n");
-			return -1;
+			if ((data = malloc(oct_number+1)) == NULL) {
+				printf("Error malloc\n");
+				return -1;
+			}
+			memset(data, 0, oct_number+1);
+
+			memcpy(data, &packet[i], oct_number);
+			if (writeFile(data, oct_number) == -1) {
+				printf("error writing file\n");
+				return -1;
+			}
+			appProps.currSeqNum = num_seq;
+
+			free(data);
 		}
-		memset(data, 0, oct_number+1);
-
-		memcpy(data, &packet[i], oct_number);
-		if (writeFile(data, oct_number) == -1) {
-			printf("error writing file\n");
-			return -1;
+		else if (tmp > 1) {
+			hasMissPack = -1;
 		}
-
-		free(data);
 	}
 
 	return 0;
