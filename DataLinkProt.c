@@ -258,9 +258,9 @@ int initLinkProps(unsigned int port) {
 		dlProps.numTransmissions = 3;
 	dlProps.isOpen = -1;
 	if(!isHERDef)
-		headerErrorRate = 0;
+		dlProps.headerErrorRate = 0;
 	if (!isFERDef)
-		frameErrorRate = 0;
+		dlProps.frameErrorRate = 0;
 
 	return 0;
 }
@@ -715,7 +715,8 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 			case END_FLAG_ST:
 			if (c == FLAG) {
 				if (ctrl == GET_CTRL_RECEIVER_READY_INDEX(NEXT_DATA_INDEX(dlProps.sequenceNumber))) {
-					printf("\nReceiver Ready Received!\n");
+					printf("Receiver Ready Received!\n");
+					alarm(0);
 					stop = -1;
 				} else if (ctrl == GET_CTRL_RECEIVER_REJECT_INDEX(dlProps.sequenceNumber)) {
 					printf("\nReceiver Reject Received!\n");
@@ -724,6 +725,7 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 					alarm(dlProps.timeout);
 				} else if (ctrl == GET_CTRL_RECEIVER_READY_INDEX(dlProps.sequenceNumber)) {
 					printf("\nRepeated packet sent. Sending next one.\n");
+					alarm(0);
 					stop = -1;
 				}
 			} else {

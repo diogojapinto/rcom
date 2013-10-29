@@ -14,6 +14,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <errno.h>
+#include <termios.h>
 
 int initAppProps();
 int cliAskStatus();
@@ -21,7 +22,7 @@ int cliAskSerialPort();
 unsigned char *cliAskDestination();
 unsigned char *cliAskSourceFile();
 int cliAskMaxPacketSize();
-unsigned char *cliAskBaudrate();
+int cliAskBaudrate();
 int cliAskTimeOut();
 int cliAskTransmissions();
 int cliAskHER();
@@ -128,7 +129,6 @@ int sendFile() {
 	int stop = 0;
 	unsigned char *packet = malloc(appProps.dataPacketSize);
 	unsigned int size = 0;
-	unsigned int i = 0;
 	while(!stop) {
 
 		if ((size = read(appProps.fileDescriptor, packet, appProps.dataPacketSize)) != appProps.dataPacketSize) {
@@ -236,9 +236,9 @@ unsigned char *cliAskDestination() {
 	return path;
 }
 
-unsigned char *cliAskBaudrate() {
+int cliAskBaudrate() {
 
-	unsigned int c = 0, return 0;
+	unsigned int c = 0;
 	printf("Insert the desired baudrate:\n");
 	printf("(1) B50\n");
 	printf("(2) B75\n");
@@ -304,7 +304,7 @@ unsigned char *cliAskBaudrate() {
 int cliAskTimeOut() {
 	printf("\nWhat is the time-out you want to set (time to wait between retransmitions)?\n\n");
 
-	unsigned char *tmp = malloc(PATH_MAX);
+	char tmp[PATH_MAX];
 	unsigned int time_out = 0;
 	memset(tmp, 0, PATH_MAX);
 	gets((char *)tmp);
@@ -324,7 +324,7 @@ int cliAskTimeOut() {
 int cliAskTransmissions() {
 	printf("\nWhat is the number of retransmitions you want to set?\n\n");
 
-	unsigned char *tmp = malloc(PATH_MAX);
+	char tmp[PATH_MAX];
 	unsigned int retransm = 0;
 	memset(tmp, 0, PATH_MAX);
 	gets((char *)tmp);
@@ -342,9 +342,9 @@ int cliAskTransmissions() {
 }
 
 int cliAskHER() {
-	printf("\nWhat is the desired header error rate (\%)?\n\n");
+	printf("\nWhat is the desired header error rate (%%)?\n\n");
 
-	unsigned char *tmp = malloc(PATH_MAX);
+	char tmp[PATH_MAX];
 	unsigned int her = 0;
 	memset(tmp, 0, PATH_MAX);
 	gets((char *)tmp);
@@ -362,9 +362,9 @@ int cliAskHER() {
 }
 
 int cliAskFER() {
-	printf("\nWhat is the desired frame error rate (\%)?\n\n");
+	printf("\nWhat is the desired frame error rate (%%)?\n\n");
 
-	unsigned char *tmp = malloc(PATH_MAX);
+	char tmp[PATH_MAX];
 	unsigned int fer = 0;
 	memset(tmp, 0, PATH_MAX);
 	gets((char *)tmp);
