@@ -21,6 +21,9 @@ int cliAskSerialPort();
 unsigned char *cliAskDestination();
 unsigned char *cliAskSourceFile();
 int cliAskMaxPacketSize();
+unsigned char *cliAskBaudrate();
+int cliAskTimeOut();
+int cliAskTransmissions();
 int isDirectoryValid(unsigned char *path);
 int isFileValid(unsigned char *path);
 int openFile(unsigned char *path, int status);
@@ -59,19 +62,14 @@ int receiveFile() {
 		printf("Error opening connection!");
 		return -1;
 	}
-	
-	printf("before start\n");
 
 	receiveCtrlPacket(CTRL_START);
 
-	printf("after start\n");
 	unsigned char file_path[PATH_MAX];
 	if (sprintf((char *)file_path, "%s/%s", (char *) dest_folder, appProps.fileName) < 0) {
 		printf("sprintf error!\n");
 		return -1;
 	}
-
-	printf("%s\n", file_path);
 
 	if ((appProps.fileDescriptor = openFile(file_path, RECEIVER)) == -1) {
 		return -1;
@@ -79,22 +77,17 @@ int receiveFile() {
 	int ret_val = 0;
 	int last_buf_size = 0;
 	unsigned char buffer[MAX_APP_DATAPACKET_SIZE];
-	printf("ciclo\n");
 	while(1) {
 		ret_val = llread(appProps.serialPortFileDescriptor, buffer);
-		printf("ret_val: %d\n", ret_val);
 		if (ret_val == DISCONNECTED) {
-			printf("verify\n");
 			if (verifyDataIntegrity(buffer, last_buf_size) == N_VALID) {
 				printf("Errors during transmission. File Invalid!\n");
 			}
 			break;
 		}
 		else {
-			printf("pre process\n");
 			last_buf_size = ret_val;
 			processDataPacket(buffer);
-			printf("processed packet\n");
 		}
 	}
 	
@@ -236,6 +229,91 @@ unsigned char *cliAskDestination() {
 	return path;
 }
 
+unsigned char *cliAskBaudrate() {
+
+	unsigned int baud;
+	printf("Insert the desired baudrate:\n");
+	char tmp[MAX_STRING_SIZE];
+	gets((char *)tmp);
+	sscanf(tmp, "%d", &baud);
+
+	while(1) {
+
+
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            B2400
+            B4800
+            B9600
+            B19200
+            B38400
+
+		switch(index) {
+			case 1:
+			setBaudRate(B50)
+			break;
+			case 2:
+			setBaudRate(B75)
+			break;
+			case 3:
+			setBaudRate(B110)
+			break;
+			case 4:
+			setBaudRate(B134)
+			break;
+			case 5:
+			setBaudRate(B150)
+			break;
+			case 6:
+			setBaudRate(B200)
+			break;
+			case 7:
+			setBaudRate(B300)
+			break;
+			case 8:
+			setBaudRate(B600)
+			break;
+			case 9:
+			setBaudRate(B1200)
+			break;
+			case 10:
+			setBaudRate(B1800)
+			break;
+			case 11:
+			setBaudRate(B50)
+			break;
+			case 12:
+			setBaudRate(B50)
+			break;
+			case 13:
+			setBaudRate(B50)
+			break;
+			case 14:
+			setBaudRate(B50)
+			break;
+			case 15:
+			setBaudRate(B50)
+			break;
+		}
+	}
+
+	return max_bytes;
+}
+int cliAskTimeOut() {
+
+}
+
+int cliAskTransmissions() {
+
+}
+
 int isDirectoryValid(unsigned char *path) {
 	int dir_exists = mkdir((char *) path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
 
@@ -327,7 +405,6 @@ int openFile(unsigned char *path, int status) {
 				}
 
 				if (opt == 'y') {
-					printf("%s\n", path);
 					if ((fd = open((char *)path, O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) == -1) {
 						perror("open()");
 						return -1;
@@ -375,12 +452,6 @@ int sendCtrlPacket(int flag) {
 	//strcat((char *) packet, (char *) appProps.fileName);
 	size += strlen((char *) appProps.fileName) + 1;
 
-	int a=0;
-	for (a=0; a < size; a++) {
-		printf("%X\n", packet[a]);
-	}
-	printf("%d\n", size);
-
 	return llwrite(appProps.serialPortFileDescriptor, packet, size);
 }
 
@@ -393,35 +464,22 @@ int receiveCtrlPacket(int flag) {
 		return -1;
 	}
 
-	int a=0;
-	for (a=0; a < size; a++) {
-		printf("%X\n", packet[a]);
-	}
-
-	printf("after read\n");
-
 	if (packet[i] != flag) {
 		printf("Error receiving initial packet\n");
 		return -1;
 	}
 
 	i++;
-	printf("%d\n", i);
-	printf("%d\n", size);
-	printf("before while\n");
-	printf("%X\n", packet[i]);
 	while(i < size) {
 		
 
 		switch(packet[i]) {
 			case T_FILE_SIZE:
-			printf("file size\n");
 			i++;
 			memcpy(&appProps.fileSize, &packet[i + 1], packet[i]);
 			i += sizeof(unsigned int) + 1;
 			break;
 			case T_FILE_NAME:
-			printf("file name\n");
 			i++;
 			memcpy(&appProps.fileName, &packet[i + 1], packet[i]);
 			i += strlen((char *) appProps.fileName) + 2;
@@ -434,23 +492,16 @@ int receiveCtrlPacket(int flag) {
 int sendDataPacket(unsigned char *data, unsigned int size) {
 	unsigned char packet[MAX_APP_DATAPACKET_SIZE];
 	unsigned int i = 0;
-	
-	printf("%d\n", size);
 
 	packet[i++] = CTRL_DATA;
-	packet[i++] = appProps.currSeqNum++	;
+	packet[i++] = appProps.currSeqNum++	% 255;
 
 	uint16_t oct_number = size;
-	printf("oct_number send: %d\n", oct_number);
 
 	memcpy(&packet[i], &oct_number, 2);
 	i+=2;
 
 	memcpy(&packet[i], data, oct_number);
-
-	printf("%s\n", data);
-
-	printf("size writen: %d\n", size+4);
 
 	return llwrite(appProps.serialPortFileDescriptor, packet, (size + 4));
 }
@@ -462,21 +513,13 @@ int processDataPacket(unsigned char *packet) {
 	uint16_t oct_number = 0;
 	unsigned int num_seq = 0;
 	unsigned char *data;
-	
-	printf("bfore memset\n");
-
-	
 
 	ctrl = packet[i++];
-	
-	printf("before if\n\n");
 
 	if (ctrl == CTRL_DATA) {
 
 		num_seq = packet[i++];
-		printf("memcpy 1\n");
 		memcpy(&oct_number, &packet[i], 2);
-		printf("oct_number: %d\n", oct_number);
 		i+=2;
 
 		if ((data = malloc(oct_number+1)) == NULL) {
@@ -484,29 +527,20 @@ int processDataPacket(unsigned char *packet) {
 			return -1;
 		}
 		memset(data, 0, oct_number+1);
-		
-		printf("memcpy 2\n");
+
 		memcpy(data, &packet[i], oct_number);
-		printf("%s\n", data);
-		printf("write\n");
 		if (writeFile(data, oct_number) == -1) {
-			printf("erro writing file\n");
+			printf("error writing file\n");
 			return -1;
 		}
-		printf("write out\n");
 
 		free(data);
 	}
 
-	
-	printf("return\n");
 	return 0;
 }
 
 int writeFile(unsigned char *data, unsigned int oct_number) {
-
-	
-
 
 	if (write(appProps.fileDescriptor, data, oct_number) != oct_number) {
 		return -1;
@@ -519,11 +553,7 @@ int verifyDataIntegrity(unsigned char *buffer, unsigned int size) {
 
 	unsigned int i = 0;
 	unsigned int ctrl = 0;
-
-	int a = 0;
-	for (a; a < size;a++) {
-		printf("%X\n", buffer[a]);
-	}
+	struct stat file_stat;
 
 	ctrl = buffer[i++];
 
@@ -537,27 +567,36 @@ int verifyDataIntegrity(unsigned char *buffer, unsigned int size) {
 		switch(buffer[i]) {
 			case T_FILE_SIZE:
 			i++;
-			printf("fsjdkf: %X\n", buffer[i]);
 			memcpy(&file_size, &buffer[i + 1], buffer[i]);
 			i += buffer[i] + 1;
 			if (file_size != appProps.fileSize) {
-				printf("file size: %d\n", file_size);
-				printf("defined size: %d\n", appProps.fileSize);
+				return N_VALID;
+			}
+
+			if (fstat(appProps.fileDescriptor, &file_stat) == -1) {
+				perror("stat()");
+				return N_VALID;
+			}
+
+			if (S_ISREG(file_stat.st_mode)) {
+				if (file_stat.st_size != file_size) {
+					return N_VALID;
+				}
+			} else {
 				return N_VALID;
 			}
 			break;
 			case T_FILE_NAME:
 			i++;
-			printf("name: %X\n", buffer[i]);
 			memcpy(&file_name, &buffer[i + 1], buffer[i]);
 			i += buffer[i] + 1;
 			if (strcmp((char *) file_name, (char *) appProps.fileName) != 0) {
-				printf("file name: %s\n", file_name);
-				printf("name defined: %s\n", appProps.fileName);
 				return N_VALID;
 			}
 			break;
 		}
 	}
+
+
 	return VALID;
 }

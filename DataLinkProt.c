@@ -52,6 +52,8 @@ int sendREJ(int fd);
 int sendDiscSupFrame(int fd, unsigned int status);
 int receiveDiscSupFrame(int fd, unsigned int status);
 
+int setBaudRate(unsigned int index);
+
 int llopen(unsigned int port, unsigned int status) {
 
 	if (initLinkProps(port))
@@ -103,7 +105,8 @@ int llwrite(int fd, unsigned char * buffer, unsigned int length) {
 		return -1;
 	}
 
-	transmitData(fd, stuffed_buf, stuffed_length);
+	int ret;
+	ret = transmitData(fd, stuffed_buf, stuffed_length);
 	if (recReceiverResp(fd, stuffed_buf, stuffed_length, bcc2) == -1) {
 		printf("recReceiverResp:\n");
 		return -1;
@@ -111,7 +114,7 @@ int llwrite(int fd, unsigned char * buffer, unsigned int length) {
 
 	free(stuffed_buf);
 	link_props.sequenceNumber = NEXT_DATA_INDEX(link_props.sequenceNumber);
-	return 0;
+	return ret;
 }
 
 int llread(int fd, unsigned char *buffer) {
@@ -180,7 +183,6 @@ int llread(int fd, unsigned char *buffer) {
 						link_props.isOpen = 0;
 						return DISCONNECTED;
 					} else {
-						printf("inside else\n");
 						// received data packet
 						unsigned int data_size = 0;
 						if ((data_size = byteDestuff(stuffed_data, data_counter, buffer)) == -1) {
@@ -190,8 +192,6 @@ int llread(int fd, unsigned char *buffer) {
 						unsigned char bcc2_rec = buffer[data_size - 1];
 						unsigned char bcc2_act = 0;
 						genBCC2(buffer, data_size-1, &bcc2_act);
-						printf("data_size: %d\n", data_size);
-						printf("before bcc2\n");
 						if (bcc2_rec == bcc2_act) {
 							link_props.sequenceNumber = NEXT_DATA_INDEX(link_props.sequenceNumber);
 							sendRR(fd);
@@ -202,7 +202,7 @@ int llread(int fd, unsigned char *buffer) {
 							} else {
 								sendREJ(fd);
 							}
-							//data_counter = 0; //reset para receber nova trama
+							data_counter = 0; //reset para receber nova trama
 						}
 					}
 				}
@@ -634,7 +634,7 @@ int transmitData(int fd, unsigned char *data, unsigned int length) {
 	write(fd, data, length);
 	write(fd, &flag, 1);
 
-	return 0;
+	return (length + 5);
 }
 
 int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned char bcc2) {
@@ -668,13 +668,11 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 		if (read(fd, &c, 1)) {
 			switch (i) {
 			case INIT_FLAG_ST:
-			printf("init\n");
 				if (c == FLAG) {
 					i = ADDR_ST;
 				}
 				break;
 			case ADDR_ST:
-			printf("addr\n");
 				if (ADDR_RECEIV_RESP) {
 					addr = c;
 					i = CTRL_ST;
@@ -683,7 +681,6 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 				}
 				break;
 			case CTRL_ST:
-				printf("ctrl\n");
 				if ((c == GET_CTRL_RECEIVER_READY_INDEX(NEXT_DATA_INDEX(link_props.sequenceNumber)))
 						|| (c == GET_CTRL_RECEIVER_READY_INDEX(link_props.sequenceNumber))
 						|| (c == GET_CTRL_RECEIVER_REJECT_INDEX(link_props.sequenceNumber))) {
@@ -696,7 +693,6 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 				}
 				break;
 			case BCC1_ST:
-				printf("bcc1\n");
 				if (c == (addr ^ ctrl)) {
 					i = END_FLAG_ST;
 				} else if (c == FLAG) {
@@ -706,7 +702,6 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 				}
 				break;
 			case END_FLAG_ST:
-				printf("end\n");
 				if (c == FLAG) {
 					if (ctrl == GET_CTRL_RECEIVER_READY_INDEX(NEXT_DATA_INDEX(link_props.sequenceNumber))) {
 						printf("\nReceiver Ready Received!\n");
@@ -781,4 +776,39 @@ int byteDestuff(unsigned char *buffer, unsigned int length, unsigned char *new_b
 		}
 	}
 	return destuff_pos;
+}
+
+int setBaudRate(unsigned int index) {
+	switch(index) {
+		case 1:
+		break;
+		case 2:
+		break;
+		case 3:
+		break;
+		case 4:
+		break;
+		case 5:
+		break;
+		case 6:
+		break;
+		case 7:
+		break;
+		case 8:
+		break;
+		case 9:
+		break;
+		case 10:
+		break;
+		case 11:
+		break;
+		case 12:
+		break;
+		case 13:
+		break;
+		case 14:
+		break;
+		case 15:
+		break;
+	}
 }
