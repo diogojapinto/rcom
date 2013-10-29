@@ -63,6 +63,8 @@ int receiveFile() {
 		return -1;
 	}
 
+	cliAskBaudrate();
+
 	receiveCtrlPacket(CTRL_START);
 
 	unsigned char file_path[PATH_MAX];
@@ -112,6 +114,8 @@ int sendFile() {
 		printf("Error opening connection!");
 		return -1;
 	}
+
+	cliAskBaudrate();
 
 	if (sendCtrlPacket(CTRL_START) == -1) {
 		printf("Error establishing connection to application!\n");
@@ -237,74 +241,77 @@ unsigned char *cliAskBaudrate() {
 	gets((char *)tmp);
 	sscanf(tmp, "%d", &baud);
 
-	while(1) {
-
-
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            B2400
-            B4800
-            B9600
-            B19200
-            B38400
-
+	int stop = 0;
+	while(!stop) {
 		switch(index) {
 			case 1:
 			setBaudRate(B50)
+			stop = -1;
 			break;
 			case 2:
 			setBaudRate(B75)
+			stop = -1;
 			break;
 			case 3:
 			setBaudRate(B110)
+			stop = -1;
 			break;
 			case 4:
 			setBaudRate(B134)
+			stop = -1;
 			break;
 			case 5:
 			setBaudRate(B150)
+			stop = -1;
 			break;
 			case 6:
 			setBaudRate(B200)
+			stop = -1;
 			break;
 			case 7:
 			setBaudRate(B300)
+			stop = -1;
 			break;
 			case 8:
 			setBaudRate(B600)
+			stop = -1;
 			break;
 			case 9:
 			setBaudRate(B1200)
+			stop = -1;
 			break;
 			case 10:
 			setBaudRate(B1800)
+			stop = -1;
 			break;
 			case 11:
-			setBaudRate(B50)
+			setBaudRate(B2400)
+			stop = -1;
 			break;
 			case 12:
-			setBaudRate(B50)
+			setBaudRate(B4800)
+			stop = -1;
 			break;
 			case 13:
-			setBaudRate(B50)
+			setBaudRate(B9600)
+			stop = -1;
 			break;
 			case 14:
-			setBaudRate(B50)
+			setBaudRate(B19200)
+			stop = -1;
 			break;
 			case 15:
-			setBaudRate(B50)
+			setBaudRate(B38400)
+			stop = -1;
 			break;
+			default: 
+			printf("Invalid option. Try again:\n");
+			gets((char *)tmp);
+			sscanf(tmp, "%d", &baud);
 		}
 	}
 
-	return max_bytes;
+	return 0;
 }
 int cliAskTimeOut() {
 

@@ -52,7 +52,7 @@ int sendREJ(int fd);
 int sendDiscSupFrame(int fd, unsigned int status);
 int receiveDiscSupFrame(int fd, unsigned int status);
 
-int setBaudRate(unsigned int index);
+int setBaudRate(unsigned int baud);
 
 int llopen(unsigned int port, unsigned int status) {
 
@@ -778,37 +778,7 @@ int byteDestuff(unsigned char *buffer, unsigned int length, unsigned char *new_b
 	return destuff_pos;
 }
 
-int setBaudRate(unsigned int index) {
-	switch(index) {
-		case 1:
-		break;
-		case 2:
-		break;
-		case 3:
-		break;
-		case 4:
-		break;
-		case 5:
-		break;
-		case 6:
-		break;
-		case 7:
-		break;
-		case 8:
-		break;
-		case 9:
-		break;
-		case 10:
-		break;
-		case 11:
-		break;
-		case 12:
-		break;
-		case 13:
-		break;
-		case 14:
-		break;
-		case 15:
-		break;
-	}
+int setBaudRate(unsigned int baud) {
+	link_props.baudRate = baud;
+	return 0;
 }
