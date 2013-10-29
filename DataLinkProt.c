@@ -165,12 +165,20 @@ int llread(int fd, unsigned char *buffer) {
 				}
 				break;
 				case BCC1_ST:
-				if (c == (addr ^ ctrl)) {
-					i = DATA_ST;
-				} else if (c == FLAG) {
-					i = ADDR_ST;
-				} else {
+				// code for simulating error reception at header (it will produce generate a 
+				// timeout at the sender's side)
+				int prob = rand() % 100;
+				if (prob < dlProps.headerErrorRate) {
 					i = INIT_FLAG_ST;
+				} else {
+					// proceed with normal behaviour
+					if (c == (addr ^ ctrl)) {
+						i = DATA_ST;
+					} else if (c == FLAG) {
+						i = ADDR_ST;
+					} else {
+						i = INIT_FLAG_ST;
+					}
 				}
 				break;
 				case DATA_ST:
@@ -196,17 +204,26 @@ int llread(int fd, unsigned char *buffer) {
 						unsigned char bcc2_rec = buffer[data_size - 1];
 						unsigned char bcc2_act = 0;
 						genBCC2(buffer, data_size-1, &bcc2_act);
-						if (bcc2_rec == bcc2_act) {
-							dlProps.sequenceNumber = NEXT_DATA_INDEX(dlProps.sequenceNumber);
-							sendRR(fd);
-							return (data_size-1);
+
+						// code for simulating error reception at data
+						int prob = rand() % 100;
+						if (prob < dlProps.frameErrorRate) {
+							sendREJ(fd);
+							data_counter = 0;
 						} else {
-							if (ctrl != GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
+							// proceed with normal behaviour
+							if (bcc2_rec == bcc2_act) {
+								dlProps.sequenceNumber = NEXT_DATA_INDEX(dlProps.sequenceNumber);
 								sendRR(fd);
+								return (data_size-1);
 							} else {
-								sendREJ(fd);
+								if (ctrl != GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
+									sendRR(fd);
+								} else {
+									sendREJ(fd);
+								}
+								data_counter = 0;
 							}
-							data_counter = 0; //reset para receber nova trama
 						}
 					}
 				}

@@ -17,31 +17,7 @@
 #include <unistd.h>
 
  int main(int argc, char **argv) {
- 	/*int fd = 0;
-
- 	if (argc > 1) {
- 		if ((fd = llopen(0, TRANSMITTER)) == -1)
- 			return -1;
- 		if (llwrite(fd, (unsigned char *)"o spaces e fodido do cerebro por estar sempre a fazer breeeding\n", 65) == -1) {
- 			return -1;
- 		}
- 		if (llclose(fd, TRANSMITTER))
- 			return -1;
- 	} else {
- 		if ((fd = llopen(0, RECEIVER)) == -1)
- 			return -1;
- 		unsigned char tmp[1000];
- 		int error = 0;
- 		while ((error = llread(fd, tmp)) != DISCONNECTED) {
- 			if (error == -1) {
- 				return -1;
- 			}
- 		}
- 		printf("%s", tmp);
- 		if (llclose(fd, RECEIVER))
- 			return -1;
- 	}*/
-
+ 	srand(time(NULL));
  	runApplication();
  	return 0;
  }
