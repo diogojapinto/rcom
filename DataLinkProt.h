@@ -11,11 +11,8 @@ typedef struct linkLayer {
 	unsigned int numTransmissions;
 	unsigned int isOpen;
 	int status;
-<<<<<<< HEAD
 	unsigned int headerErrorRate;
 	unsigned int frameErrorRate;
-=======
->>>>>>> 590dbd115515b7c899dd3cd1644d93e8dff3b706
 } linkLayer_t;
 
 /**
@@ -47,13 +44,10 @@ int llwrite(int fd, unsigned char * buffer, unsigned int length);
  */
 int llclose(int fd, unsigned int status);
 
-<<<<<<< HEAD
 int setBaudRate(unsigned int baud);
 int setHeaderErrorRate(int rate);
 int setFrameErrorRate(int rate);
 int setTimeOut(int to);
 int setNumTransm(int n);
 
-=======
->>>>>>> 590dbd115515b7c899dd3cd1644d93e8dff3b706
 #endif
