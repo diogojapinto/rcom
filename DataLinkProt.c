@@ -85,7 +85,7 @@ int llwrite(int fd, unsigned char * buffer, unsigned int length) {
 		printf("Invalid call: you cannot write to the serial port!\n");
 		return -1;
 	}
-	if (!link_props.isOpen) {
+	if (!isInitialized) {
 		printf("Serial port is not initialized. Please run llopen() as TRANSMITTER before calling this function!\n");
 		return -1;
 	}
@@ -119,7 +119,7 @@ int llread(int fd, unsigned char *buffer) {
 		printf("Invalid call: you cannot read from the serial port!\n");
 		return -1;
 	}
-	if (!link_props.isOpen) {
+	if (!isInitialized) {
 		printf("Serial port is not initialized. Please run llopen() as RECEIVER before calling this function!\n");
 		return -1;
 	}

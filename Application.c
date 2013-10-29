@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <ctype.h>
+#include <errno.h>
 
 int initAppProps();
 int cliAskStatus();
@@ -22,7 +23,7 @@ unsigned char *cliAskSourceFile();
 int cliAskMaxPacketSize();
 int isDirectoryValid(unsigned char *path);
 int isFileValid(unsigned char *path);
-int openFile(unsigned char *tmp, int status);
+int openFile(unsigned char *path, int status);
 int sendCtrlPacket(int flag);
 int receiveCtrlPacket(int flag);
 int sendDataPacket(unsigned char *data, unsigned int size);
@@ -34,9 +35,9 @@ applicationLayer_t appProps;
 
 int runApplication() {
 	initAppProps();
-	appProps.filePort = cliAskSerialPort();
 	appProps.status = cliAskStatus();
 	while(appProps.status != EXIT_APP) {
+		appProps.filePort = cliAskSerialPort();
 		if (appProps.status == TRANSMITTER) {
 			sendFile();
 		} else {	// is a RECEIVER
@@ -53,7 +54,11 @@ int receiveFile() {
 	unsigned char *dest_folder = cliAskDestination();
 	printf("\nWaiting for connection!\n");
 
-	appProps.serialPortFileDescriptor = llopen(appProps.filePort, appProps.status);
+	if ((appProps.serialPortFileDescriptor = llopen(appProps.filePort, appProps.status)) == -1) {
+		free(dest_folder);
+		printf("Error opening connection!");
+		return -1;
+	}
 	
 	printf("before start\n");
 
@@ -69,10 +74,8 @@ int receiveFile() {
 	printf("%s\n", file_path);
 
 	if ((appProps.fileDescriptor = openFile(file_path, RECEIVER)) == -1) {
-		perror("open()");
 		return -1;
 	}
-
 	int ret_val = 0;
 	int last_buf_size = 0;
 	unsigned char buffer[MAX_APP_DATAPACKET_SIZE];
@@ -110,9 +113,17 @@ int sendFile() {
 	appProps.fileDescriptor = openFile(path, appProps.status);
 	appProps.dataPacketSize = cliAskMaxPacketSize();
 
-	appProps.serialPortFileDescriptor = llopen(appProps.filePort, appProps.status);
+	if ((appProps.serialPortFileDescriptor = llopen(appProps.filePort, appProps.status)) == -1) {
+		close(appProps.fileDescriptor);
+		free(path);
+		printf("Error opening connection!");
+		return -1;
+	}
 
-	sendCtrlPacket(CTRL_START);
+	if (sendCtrlPacket(CTRL_START) == -1) {
+		printf("Error establishing connection to application!\n");
+		return -1;
+	}
 	
 	int stop = 0;
 	unsigned char *packet = malloc(appProps.dataPacketSize);
@@ -120,21 +131,23 @@ int sendFile() {
 	unsigned int i = 0;
 	while(!stop) {
 
-		//for (; i < appProps.dataPacketSize; i++) {
 		if ((size = read(appProps.fileDescriptor, packet, appProps.dataPacketSize)) != appProps.dataPacketSize) {
 			stop = -1;
 		}
-		printf("data packet size: %d\n", appProps.dataPacketSize);
-		printf("size before: %d\n", size);
-		int xx = sendDataPacket(packet, size);
-		printf("xx: %d\n", xx);
-		//}
+		if (sendDataPacket(packet, size) == -1) {
+			printf("Error transmitting files!\n");
+			return -1;
+		}
 	}
 
-	sendCtrlPacket(CTRL_END);
+	if (sendCtrlPacket(CTRL_END) == -1) {
+		printf("Error closing connection to application!!\n");
+		return -1;
+	}
 
 	llclose(appProps.serialPortFileDescriptor, appProps.status);
 
+	close(appProps.fileDescriptor);
 	free(path);
 	return 0;
 }
@@ -159,13 +172,14 @@ int cliAskStatus() {
 	printf("(3) Exit application\n\n");
 
 	int c = -1;
-	scanf(" %d", &c);
-	
+	char tmp[MAX_STRING_SIZE];
+	gets((char *)tmp);
+	sscanf(tmp, "%d", &c);
 
 	while(c != TRANSMITTER && c != RECEIVER && c != EXIT_APP) {
-		c = -1;
 		printf("\nInvalid input. Please choose a valid one!\n\n");
-		scanf(" %d", &c);
+		gets((char *)tmp);
+		sscanf(tmp, "%d", &c);
 	}
 
 	return c;
@@ -175,11 +189,15 @@ int cliAskSerialPort() {
 	printf("\nChoose a serial port ('0' - '4')\n\n");
 
 	int c = -1;
-	scanf(" %d", &c);
+	char tmp[MAX_STRING_SIZE];
+	gets((char *)tmp);
+	sscanf(tmp, "%d", &c);
 
 	while(c < 0 || c > 4) {
+		c = -1;
 		printf("Invalid input. Please choose a valid serial port number\n");
-		scanf(" %d", &c);
+		gets((char *)tmp);
+		sscanf(tmp, "%d", &c);
 	}
 
 	return 0;
@@ -188,11 +206,15 @@ int cliAskSerialPort() {
 int cliAskMaxPacketSize() {
 	unsigned int max_bytes = 0;
 	printf("Insert the maximum number of data bytes per frame \n(min value: 1\nmax value: %d)\n", MAX_APP_DATAPACKET_SIZE);
-	scanf(" %u", &max_bytes);
+	char tmp[MAX_STRING_SIZE];
+	gets((char *)tmp);
+	sscanf(tmp, "%u", &max_bytes);
 
 	while(max_bytes < 1 || max_bytes > (MAX_APP_DATAPACKET_SIZE < appProps.fileSize * pow(2,8) ? MAX_APP_DATAPACKET_SIZE : appProps.fileSize * pow(2,8))  ) {
+		max_bytes = 0;
 		printf("Invalid number of data bytes per frame. Please input another value\n\n");
-		scanf(" %u", &max_bytes);
+		gets((char *)tmp);
+		sscanf(tmp, "%u", &max_bytes);
 	}
 
 	return max_bytes;
@@ -202,11 +224,13 @@ unsigned char *cliAskDestination() {
 	printf("\nWhat is the path to the destination folder of the file?\n\n");
 
 	unsigned char *path = malloc(PATH_MAX);
-	scanf(" %s", path);
+	memset(path, 0, PATH_MAX);
+	gets((char *)path);
 
 	while (isDirectoryValid(path) != 1) {
+		memset(path, 0, PATH_MAX);
 		printf("\nInvalid folder path. Please input a valid one!\n\n");
-		scanf(" %s", path);
+		gets((char *)path);
 	}
 
 	return path;
@@ -237,11 +261,13 @@ unsigned char *cliAskSourceFile() {
 	printf("\nWhat is the path to the source file to be copied?\n\n");
 
 	unsigned char *path = malloc(PATH_MAX);
-	scanf(" %s", path);
+	memset(path, 0, PATH_MAX);
+	gets((char *)path);
 
 	while (isFileValid(path)) {
+		memset(path, 0, PATH_MAX);
 		printf("\nInvalid file path. Please input a valid one!\n\n");
-		scanf(" %s", path);
+		gets((char *)path);
 	}
 
 	return path;
@@ -272,38 +298,50 @@ int isFileValid(unsigned char *path) {
 	}
 }
 
-int openFile(unsigned char *tmp, int status) {
+int openFile(unsigned char *path, int status) {
 	int fd = 0;
 
 	if (status == TRANSMITTER) {
-		if ((fd = open((char *) tmp, O_RDONLY)) == -1) {
+		if ((fd = open((char *) path, O_RDONLY)) == -1) {
 			perror("open()");
 			return -1;
 		}	
 	}
 	else if (status == RECEIVER) {
-		if ((fd = open((char *) tmp, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) == -1) {
-			printf("File already exists!\n");
-			printf("Do you want to override it?(y/n)\n");
-			char opt;
-			scanf(" %c", &opt);
-			opt = tolower(opt);
-			while (opt != 'y' && opt != 'n' ) {
-				printf("\nInvalid option. Please input a valid one!\n\n");
-				scanf(" %c", &opt);
+		if ((fd = open((char *) path, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) == -1) {
+			
+			if (errno == EEXIST) {
+				printf("File already exists!\n");
+				printf("Do you want to override it?(y/n)\n");
+				char opt = 0;
+				char tmp[MAX_STRING_SIZE];
+				gets((char *)tmp);
+				sscanf(tmp, "%c", &opt);
 				opt = tolower(opt);
-			}
-
-			if (opt == 'y') {
-				if ((fd = open((char *)tmp, O_TRUNC | O_WRONLY) == -1)) {
-					perror("open()");
-					return -1;
+				while (opt != 'y' && opt != 'n' ) {
+					opt = 0;
+					printf("\nInvalid option. Please input a valid one!\n\n");
+					gets((char *)tmp);
+					sscanf(tmp, "%c", &opt);				
+					opt = tolower(opt);
 				}
-			}
+
+				if (opt == 'y') {
+					printf("%s\n", path);
+					if ((fd = open((char *)path, O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) == -1) {
+						perror("open()");
+						return -1;
+					}
+				}
+				else {
+					return -1;	
+				}
+			} 
 			else {
-				return -1;	
+				perror("open()");
+				return -1;
 			}
-		}
+		} 
 	}
 	else {
 		return -1;
