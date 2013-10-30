@@ -1,6 +1,6 @@
 # macros definitions
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -pthread -lrt
 XHDRS = macros.h
 
 all: rcom_proj

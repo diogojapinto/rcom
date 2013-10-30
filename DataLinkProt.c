@@ -248,23 +248,16 @@ int receiveData(int fd, unsigned char *buffer) {
 						} else {
 							// proceed with normal behaviour
 							if (bcc2_rec == bcc2_act) {
-									if (ctrl != GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
-										printf("rr1\n");
-										sendRR(fd);										
-										i = INIT_FLAG_ST;
-										data_counter = 0;
-									} else {
-										dlProps.sequenceNumber = NEXT_DATA_INDEX(dlProps.sequenceNumber);
-										printf("rr2\n");
-										sendRR(fd);
-										return (data_size-1);
-									}
-							} else {
+								dlProps.sequenceNumber = NEXT_DATA_INDEX(dlProps.sequenceNumber);
+								sendRR(fd);
+								return (data_size-1);
+							}
+							else {
 								if (ctrl != GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
-									printf("rr3\n");
+										//printf("rr3\n");
 										sendRR(fd);
 									} else {
-									printf("rej\n");
+									//printf("rej\n");
 										sendREJ(fd);
 									}
 								i = INIT_FLAG_ST;

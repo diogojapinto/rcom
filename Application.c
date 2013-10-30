@@ -15,6 +15,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <termios.h>
+#include <pthread.h>
 
 int initAppProps();
 int cliAskStatus();
@@ -104,8 +105,7 @@ int receiveFile() {
 	close(appProps.fileDescriptor);
 
 	if (hasMissPack || ret_val == N_VALID) {
-		if (hasMissPack)
-			printf("Missing data. File being deleted, please try again!");
+		printf("Missing data. File being deleted, please try again!");
 		unlink((char *)file_path);
 	}
 
@@ -569,8 +569,8 @@ int sendDataPacket(unsigned char *data, unsigned int size) {
 	unsigned int i = 0;
 
 	packet[i++] = CTRL_DATA;
-	appProps.currSeqNum =  (appProps.currSeqNum % 255) + 1;
-	packet[i++] = appProps.currSeqNum;
+	packet[i++] = appProps.currSeqNum % 255 + 1;
+	appProps.currSeqNum++;
 
 	uint16_t oct_number = size;
 
@@ -598,10 +598,7 @@ int processDataPacket(unsigned char *packet) {
 		num_seq = packet[i++];
 		tmp = num_seq - appProps.currSeqNum;
 		// if this is a new index cycle:
-		printf("%d\n", num_seq);
-		printf("%d\n", appProps.currSeqNum);
-		printf("%d\n", tmp);
-		if (tmp == -254)
+		if (tmp == -253)
 			tmp = 1;
 		if ( tmp == 1) {
 			memcpy(&oct_number, &packet[i], 2);
@@ -689,4 +686,33 @@ int verifyDataIntegrity(unsigned char *buffer, unsigned int size) {
 
 
 	return VALID;
+}
+
+void *updateProgressBar(void * ptr) {
+
+	struct stat file_stat;
+
+	if (fstat(appProps.fileDescriptor, &file_stat) == -1) {
+		perror("stat()");
+	}
+
+	int c = ceiling((float) file_stat.st_size / (float) appProps.fileSize * PROGRESS_BAR_SIZE);
+
+	char bar[PROGRESS_BAR_SIZE] = {0};
+	int i = 0;
+
+	bar[0] = '[';
+
+		while (i < (c-2)) {
+			strcat(bar, "=");
+			i++;
+		}
+
+		if (c != 75) {
+			bar[c-1] = '>';
+		}
+
+		bar[PROGRESS_BAR_SIZE-1] = ']';
+
+	printf("\r%s", bar);
 }

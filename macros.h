@@ -4,6 +4,7 @@
 #define MAX_APP_DATAPACKET_SIZE 65535
 #define MAX_FRAME_SIZE 131072
 #define MAX_STRING_SIZE 10000
+#define PROGRESS_BAR_SIZE 75
 
 /*
  * data link macros
