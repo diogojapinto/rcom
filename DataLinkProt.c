@@ -64,7 +64,7 @@ int llopen(unsigned int port, unsigned int status) {
 		return -1;
 
 	dlProps.status = status;
-
+	printf("%s\n", dlProps.port);
 	int fd = openPortFile(port);
 
 	if (status == TRANSMITTER) {
@@ -172,10 +172,12 @@ int receiveData(int fd, unsigned char *buffer) {
 			switch (i) {
 				case INIT_FLAG_ST:
 				if (c == FLAG) {
+					//printf("flag\n");
 					i = ADDR_ST;
 				}
 				break;
 				case ADDR_ST:
+				//printf("addr\n");
 				if (c == ADDR_TRANSM) {
 					addr = c;
 					i = CTRL_ST;
@@ -184,6 +186,7 @@ int receiveData(int fd, unsigned char *buffer) {
 				}
 				break;
 				case CTRL_ST:
+				//printf("ctrl\n");
 				if (c == GET_CTRL_DATA_INDEX(dlProps.sequenceNumber) || c == C_DISC) {
 					ctrl = c;
 					i = BCC1_ST;
@@ -194,6 +197,7 @@ int receiveData(int fd, unsigned char *buffer) {
 				}
 				break;
 				case BCC1_ST: ;
+				//printf("bcc\n");
 				// code for simulating error reception at header (it will produce generate a 
 				// timeout at the sender's side)
 				int prob = rand() % 100;
@@ -211,6 +215,7 @@ int receiveData(int fd, unsigned char *buffer) {
 				}
 				break;
 				case DATA_ST:
+				//printf("data\n");
 				if (c != FLAG) {
 					stuffed_data[data_counter] = c;
 					data_counter++;
@@ -238,19 +243,31 @@ int receiveData(int fd, unsigned char *buffer) {
 						int prob = rand() % 100;
 						if (prob < dlProps.frameErrorRate) {
 							sendREJ(fd);
+							i = INIT_FLAG_ST;
 							data_counter = 0;
 						} else {
 							// proceed with normal behaviour
 							if (bcc2_rec == bcc2_act) {
-								dlProps.sequenceNumber = NEXT_DATA_INDEX(dlProps.sequenceNumber);
-								sendRR(fd);
-								return (data_size-1);
+									if (ctrl != GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
+										printf("rr1\n");
+										sendRR(fd);										
+										i = INIT_FLAG_ST;
+										data_counter = 0;
+									} else {
+										dlProps.sequenceNumber = NEXT_DATA_INDEX(dlProps.sequenceNumber);
+										printf("rr2\n");
+										sendRR(fd);
+										return (data_size-1);
+									}
 							} else {
 								if (ctrl != GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
-									sendRR(fd);
-								} else {
-									sendREJ(fd);
-								}
+									printf("rr3\n");
+										sendRR(fd);
+									} else {
+									printf("rej\n");
+										sendREJ(fd);
+									}
+								i = INIT_FLAG_ST;
 								data_counter = 0;
 							}
 						}
@@ -265,10 +282,11 @@ int receiveData(int fd, unsigned char *buffer) {
 }
 
 int initLinkProps(unsigned int port) {
-	if (port != 0 && port != 1) {
-		printf("Port selected is invalid. Please choose port 0 or 1!\n");
+	if (port < 0 || port > 4) {
+		printf("Port selected is invalid. Please choose port between 0 and 4!\n");
 		return -1;
 	}
+
 	sprintf(dlProps.port, "/dev/ttyS%d", port);
 
 	if (!isBaudDef) 
@@ -291,8 +309,6 @@ int openPortFile(unsigned int port) {
 
 	// variable for initialization of the serial port
 	int fd;
-	struct termios oldtio, newtio;
-
 	fd = open(dlProps.port, O_RDWR | O_NOCTTY);
 	if (fd < 0) {
 		perror(dlProps.port);
@@ -694,7 +710,7 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 			return -1;
 		} else if (alarmFlag == 0) {
 			// retransmit data
-			transmitData(fd, data, length/*, bcc2*/);
+			transmitData(fd, data, length);
 			alarmFlag = 1;
 			alarm(dlProps.timeout);
 		}
@@ -750,6 +766,9 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 					alarm(0);
 					stop = -1;
 				}
+				else {
+					i = ADDR_ST;
+					}
 			} else {
 				i = INIT_FLAG_ST;
 			}

@@ -84,16 +84,13 @@ int receiveFile() {
 		return -1;
 	}
 
-	// if is the receiver, decrement the currSeqNum in relation to the sender, to keep coherence
-	appProps.currSeqNum--;
-
 	int ret_val = 0;
 	int last_buf_size = 0;
 	unsigned char buffer[MAX_APP_DATAPACKET_SIZE];
 	while(1) {
 		ret_val = llread(appProps.serialPortFileDescriptor, buffer);
 		if (ret_val == DISCONNECTED) {
-			if (verifyDataIntegrity(buffer, last_buf_size) == N_VALID) {
+			if ((ret_val = verifyDataIntegrity(buffer, last_buf_size)) == N_VALID) {
 				printf("Errors during transmission. File Invalid!\n");
 			}
 			break;
@@ -106,8 +103,9 @@ int receiveFile() {
 	
 	close(appProps.fileDescriptor);
 
-	if (hasMissPack) {
-		printf("Missing data. File being deleted, please try again!");
+	if (hasMissPack || ret_val == N_VALID) {
+		if (hasMissPack)
+			printf("Missing data. File being deleted, please try again!");
 		unlink((char *)file_path);
 	}
 
@@ -169,7 +167,7 @@ int initAppProps() {
 	memset(appProps.fileName, 0, PATH_MAX);
 	appProps.fileSize = 0;
 	appProps.dataPacketSize = 1;
-	appProps.currSeqNum = 1;
+	appProps.currSeqNum = 0;
 	appProps.fileDescriptor = 0;
 
 	return 0;
@@ -210,7 +208,7 @@ int cliAskSerialPort() {
 		sscanf(tmp, "%d", &c);
 	}
 
-	return 0;
+	return c;
 }
 
 int cliAskMaxPacketSize() {
@@ -360,7 +358,7 @@ int cliAskHER() {
 	gets((char *)tmp);
 	sscanf(tmp, "%d", &her);
 
-	while (her < 1) {
+	while (her < 0 || her > 100) {
 		her = 0;
 		memset(tmp, 0, PATH_MAX);
 		printf("\nInvalid rate. Please input a valid one!\n\n");
@@ -380,7 +378,7 @@ int cliAskFER() {
 	gets((char *)tmp);
 	sscanf(tmp, "%d", &fer);
 
-	while (fer < 1) {
+	while (fer < 0 || fer > 100) {
 		fer = 0;
 		memset(tmp, 0, PATH_MAX);
 		printf("\nInvalid rate. Please input a valid one!\n\n");
@@ -571,7 +569,8 @@ int sendDataPacket(unsigned char *data, unsigned int size) {
 	unsigned int i = 0;
 
 	packet[i++] = CTRL_DATA;
-	packet[i++] = appProps.currSeqNum % 255 + 1;
+	appProps.currSeqNum =  (appProps.currSeqNum % 255) + 1;
+	packet[i++] = appProps.currSeqNum;
 
 	uint16_t oct_number = size;
 
@@ -599,6 +598,9 @@ int processDataPacket(unsigned char *packet) {
 		num_seq = packet[i++];
 		tmp = num_seq - appProps.currSeqNum;
 		// if this is a new index cycle:
+		printf("%d\n", num_seq);
+		printf("%d\n", appProps.currSeqNum);
+		printf("%d\n", tmp);
 		if (tmp == -254)
 			tmp = 1;
 		if ( tmp == 1) {
