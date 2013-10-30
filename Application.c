@@ -692,6 +692,13 @@ void *updateProgressBar(void * ptr) {
 
 	struct stat file_stat;
 
+	pthread_t tid = pthread_self();
+
+	if (pthread_detach(tid) != 0) {
+		perror("pthread_detach()");
+		exit(-1);
+	}
+
 	if (fstat(appProps.fileDescriptor, &file_stat) == -1) {
 		perror("stat()");
 	}
@@ -714,5 +721,5 @@ void *updateProgressBar(void * ptr) {
 
 		bar[PROGRESS_BAR_SIZE-1] = ']';
 
-	printf("\r%s", bar);
+printf("\r%s", bar);
 }
