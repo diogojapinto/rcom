@@ -5,8 +5,8 @@ XHDRS = macros.h
 
 all: rcom_proj
 
-rcom_proj: DataLinkProt.o Application.o main.c $(XHDRS) 
-	$(CC) DataLinkProt.o Application.o main.c $(XHDRS)  -o $@ $(CFLAGS)
+rcom_proj: DataLinkProt.o Application.o log.o main.c $(XHDRS) 
+	$(CC) DataLinkProt.o Application.o log.o main.c $(XHDRS)  -o $@ $(CFLAGS)
 
 Application.o: Application.c $(XHDRS)
 	$(CC) -c Application.h Application.c $(XHDRS) $(CFLAGS)
