@@ -68,10 +68,7 @@ int runApplication() {
 		}
 		initAppProps();
 		appProps.status = cliAskStatus();
-<<<<<<< HEAD
 		bytes_read = 0;
-=======
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	}
 
 	log_info.event = APP_CLOSED;
@@ -266,20 +263,12 @@ int cliAskStatus() {
 
 	int c = -1;
 	char tmp[MAX_STRING_SIZE];
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%d", &c);
 
 	while (c != TRANSMITTER && c != RECEIVER && c != EXIT_APP) {
 		printf("\nInvalid input. Please choose a valid one!\n\n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%d", &c);
 	}
 
@@ -291,21 +280,13 @@ int cliAskSerialPort() {
 
 	int c = -1;
 	char tmp[MAX_STRING_SIZE];
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%d", &c);
 
 	while (c < 0 || c > 4) {
 		c = -1;
 		printf("Invalid input. Please choose a valid serial port number\n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%d", &c);
 	}
 
@@ -322,11 +303,7 @@ int cliAskMaxPacketSize() {
 			"Insert the maximum number of data bytes per frame \n(min value: 1\nmax value: %d)\n",
 			MAX_APP_DATAPACKET_SIZE);
 	char tmp[MAX_STRING_SIZE];
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%u", &max_bytes);
 
 	while (max_bytes < 1
@@ -337,11 +314,7 @@ int cliAskMaxPacketSize() {
 		max_bytes = 0;
 		printf(
 				"Invalid number of data bytes per frame. Please input another value\n\n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%u", &max_bytes);
 	}
 
@@ -357,22 +330,15 @@ unsigned char *cliAskDestination() {
 
 	unsigned char *path = malloc(PATH_MAX);
 	memset(path, 0, PATH_MAX);
-<<<<<<< HEAD
 	fgets((char *) path, PATH_MAX, stdin);
 	path[strlen((char *) path) - 1] = '\0';
-=======
 	gets((char *) path);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 
 	while (isDirectoryValid(path) != 1) {
 		memset(path, 0, PATH_MAX);
 		printf("\nInvalid folder path. Please input a valid one!\n\n");
-<<<<<<< HEAD
 		fgets((char *) path, PATH_MAX, stdin);
 		path[strlen((char *) path) - 1] = '\0';
-=======
-		gets((char *) path);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	}
 
 	log_info.event = APP_SET_DESTFOLD;
@@ -404,20 +370,12 @@ int cliAskBaudrate() {
 	printf("(14) B19200\n");
 	printf("(15) B38400\n\n");
 	char tmp[MAX_STRING_SIZE];
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%d", &c);
 
 	while (c < 1 || c > 15) {
 		printf("Invalid option. Try again: \n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%d", &c);
 	}
 
@@ -430,22 +388,14 @@ int cliAskTimeOut() {
 	char tmp[PATH_MAX];
 	unsigned int time_out = 0;
 	memset(tmp, 0, PATH_MAX);
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%d", &time_out);
 
 	while (time_out < 1) {
 		time_out = 0;
 		memset(tmp, 0, PATH_MAX);
 		printf("\nInvalid time-out. Please input a valid one!\n\n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%d", &time_out);
 	}
 
@@ -458,11 +408,7 @@ int cliAskTransmissions() {
 	char tmp[PATH_MAX];
 	unsigned int retransm = 0;
 	memset(tmp, 0, PATH_MAX);
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%d", &retransm);
 
 	while (retransm < 1) {
@@ -470,11 +416,7 @@ int cliAskTransmissions() {
 		memset(tmp, 0, PATH_MAX);
 		printf(
 				"\nInvalid number of retransmitions. Please input a valid one!\n\n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%d", &retransm);
 	}
 
@@ -487,22 +429,14 @@ int cliAskHER() {
 	char tmp[PATH_MAX];
 	unsigned int her = 0;
 	memset(tmp, 0, PATH_MAX);
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%d", &her);
 
 	while (her < 0 || her > 100) {
 		her = 0;
 		memset(tmp, 0, PATH_MAX);
 		printf("\nInvalid rate. Please input a valid one!\n\n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%d", &her);
 	}
 
@@ -515,22 +449,14 @@ int cliAskFER() {
 	char tmp[PATH_MAX];
 	unsigned int fer = 0;
 	memset(tmp, 0, PATH_MAX);
-<<<<<<< HEAD
 	fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-	gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	sscanf(tmp, "%d", &fer);
 
 	while (fer < 0 || fer > 100) {
 		fer = 0;
 		memset(tmp, 0, PATH_MAX);
 		printf("\nInvalid rate. Please input a valid one!\n\n");
-<<<<<<< HEAD
 		fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-		gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 		sscanf(tmp, "%d", &fer);
 	}
 
@@ -564,7 +490,6 @@ unsigned char *cliAskSourceFile() {
 
 	unsigned char *path = malloc(PATH_MAX);
 	memset(path, 0, PATH_MAX);
-<<<<<<< HEAD
 	fgets((char *) path, PATH_MAX, stdin);
 	path[strlen((char *) path) - 1] = '\0';
 	printf("%s\n", path);
@@ -573,14 +498,6 @@ unsigned char *cliAskSourceFile() {
 		printf("\nInvalid file path. Please input a valid one!\n\n");
 		fgets((char *) path, PATH_MAX, stdin);
 		path[strlen((char *) path) - 1] = '\0';
-=======
-	gets((char *) path);
-
-	while (isFileValid(path)) {
-		memset(path, 0, PATH_MAX);
-		printf("\nInvalid file path. Please input a valid one!\n\n");
-		gets((char *) path);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	}
 
 	log_info.event = APP_SOURCEF_DEF;
@@ -632,21 +549,13 @@ int openFile(unsigned char *path, int status) {
 				printf("Do you want to override it?(y/n)\n");
 				char opt = 0;
 				char tmp[MAX_STRING_SIZE];
-<<<<<<< HEAD
 				fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-				gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 				sscanf(tmp, "%c", &opt);
 				opt = tolower(opt);
 				while (opt != 'y' && opt != 'n') {
 					opt = 0;
 					printf("\nInvalid option. Please input a valid one!\n\n");
-<<<<<<< HEAD
 					fgets((char *) tmp, MAX_STRING_SIZE, stdin);
-=======
-					gets((char *) tmp);
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 					sscanf(tmp, "%c", &opt);
 					opt = tolower(opt);
 				}
@@ -887,8 +796,6 @@ void *updateProgressBar(void * ptr) {
 
 	int c = 0;
 	if (appProps.status == TRANSMITTER) {
-<<<<<<< HEAD
-
 		c = ceil(
 				((float) bytes_read)
 						/ ((float) file_stat.st_size)* PROGRESS_BAR_SIZE);
@@ -897,19 +804,6 @@ void *updateProgressBar(void * ptr) {
 				((float) file_stat.st_size)
 						/ ((float) appProps.fileSize)* PROGRESS_BAR_SIZE);
 	}
-
-=======
-
-		c = ceil(
-				((float) bytes_read)
-						/ ((float) file_stat.st_size)* PROGRESS_BAR_SIZE);
-	} else {
-		c = ceil(
-				((float) file_stat.st_size)
-						/ ((float) appProps.fileSize)* PROGRESS_BAR_SIZE);
-	}
-
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	char bar[PROGRESS_BAR_SIZE + 2] = { 0 };
 	int i = 0;
 
@@ -938,15 +832,8 @@ void *updateProgressBar(void * ptr) {
 	bar[PROGRESS_BAR_SIZE] = ']';
 	i = floor(((float) c) / ((float) PROGRESS_BAR_SIZE) * 100);
 	printf("\r%s ", bar);
-<<<<<<< HEAD
 
 	printf("%d%%", i);
-
-=======
-
-	printf("%d%%", i);
-
->>>>>>> 1a5d5dc2a2b0ba74c679976a582c0bcd23d0225f
 	fflush(stdout);
 
 	return NULL ;
