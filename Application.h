@@ -13,7 +13,7 @@ struct applicationLayer {
 	unsigned char fileName[PATH_MAX];
 	unsigned int fileSize;
 	int fileDescriptor;
-} typedef applicationLayer_t;
+}typedef applicationLayer_t;
 
 int runApplication();
 int receiveFile();

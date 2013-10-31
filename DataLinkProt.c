@@ -1,4 +1,5 @@
 #include "DataLinkProt.h"
+#include "log.h"
 #include "macros.h"
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -15,6 +16,8 @@ enum transState {
 	INIT_FLAG_ST, ADDR_ST, CTRL_ST, BCC1_ST, DATA_ST, BCC2_ST, END_FLAG_ST
 };
 
+log_info_t log_info;
+
 linkLayer_t dlProps;
 unsigned int isInitialized = 0;
 unsigned int isOpen = 0;
@@ -29,7 +32,7 @@ unsigned int isFERDef = 0;
 struct termios oldtio, newtio;
 
 /** alarm variables: */
-//	set to 0 by the alarm listener, and back to 1 by the application
+//        set to 0 by the alarm listener, and back to 1 by the application
 int alarmFlag = 1;
 
 // counts the number of times the alarm was triggered
@@ -47,11 +50,14 @@ int receiveSetSupFrame(int fd);
 int sendUASupFrame(int fd, unsigned int status);
 
 int genBCC2(unsigned char *buffer, unsigned int length, unsigned char *bcc2);
-int byteStuff(unsigned char *buffer, unsigned int length, unsigned char *new_buffer);
+int byteStuff(unsigned char *buffer, unsigned int length,
+		unsigned char *new_buffer);
 int transmitData(int fd, unsigned char *data, unsigned int length);
-int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned char bcc2);
+int recReceiverResp(int fd, unsigned char *data, unsigned int length,
+		unsigned char bcc2);
 int receiveData(int fd, unsigned char *buffer);
-int byteDestuff(unsigned char *buffer, unsigned int length, unsigned char *new_buffer);
+int byteDestuff(unsigned char *buffer, unsigned int length,
+		unsigned char *new_buffer);
 int sendRR(int fd);
 int sendREJ(int fd);
 
@@ -64,12 +70,14 @@ int llopen(unsigned int port, unsigned int status) {
 		return -1;
 
 	dlProps.status = status;
-	printf("%s\n", dlProps.port);
 	int fd = openPortFile(port);
 
 	if (status == TRANSMITTER) {
-		if (sendSetSupFrame(fd))
+		if (sendSetSupFrame(fd)) {
+			log_info.event = DL_FAILED_SET;
+			writeToLog(log_info);
 			return -1;
+		}
 		if (receiveUASupFrame(fd, status))
 			return -1;
 	} else if (status == RECEIVER) {
@@ -92,20 +100,24 @@ int llwrite(int fd, unsigned char * buffer, unsigned int length) {
 		return -1;
 	}
 	if (!isInitialized) {
-		printf("Serial port is not initialized. Please run llopen() as TRANSMITTER before calling this function!\n");
+		printf(
+				"Serial port is not initialized. Please run llopen() as TRANSMITTER before calling this function!\n");
 		return -1;
 	}
 	unsigned char bcc2 = 0;
 	genBCC2(buffer, length, &bcc2);
 
-	unsigned char tmp_buffer[MAX_FRAME_SIZE] = {0};
+	unsigned char tmp_buffer[MAX_FRAME_SIZE] = { 0 };
 	memcpy(tmp_buffer, buffer, length);
 	tmp_buffer[length] = bcc2;
 
 	unsigned char *stuffed_buf = malloc(MAX_FRAME_SIZE);
 	int stuffed_length = 0;
-	if ((stuffed_length = byteStuff(tmp_buffer, length + 1, stuffed_buf)) == -1) {
+	if ((stuffed_length = byteStuff(tmp_buffer, length + 1, stuffed_buf))
+			== -1) {
 		printf("Error stuffing data!\n");
+		log_info.event = DL_ERROR_STUFFING_DATA;
+		writeToLog(log_info);
 		return -1;
 	}
 
@@ -127,10 +139,10 @@ int llread(int fd, unsigned char *buffer) {
 		return -1;
 	}
 	if (!isInitialized) {
-		printf("Serial port is not initialized. Please run llopen() as RECEIVER before calling this function!\n");
+		printf(
+				"Serial port is not initialized. Please run llopen() as RECEIVER before calling this function!\n");
 		return -1;
 	}
-	
 
 	return receiveData(fd, buffer);
 }
@@ -170,14 +182,12 @@ int receiveData(int fd, unsigned char *buffer) {
 		unsigned char c = 0;
 		if (read(fd, &c, 1)) {
 			switch (i) {
-				case INIT_FLAG_ST:
+			case INIT_FLAG_ST:
 				if (c == FLAG) {
-					//printf("flag\n");
 					i = ADDR_ST;
 				}
 				break;
-				case ADDR_ST:
-				//printf("addr\n");
+			case ADDR_ST:
 				if (c == ADDR_TRANSM) {
 					addr = c;
 					i = CTRL_ST;
@@ -185,9 +195,9 @@ int receiveData(int fd, unsigned char *buffer) {
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case CTRL_ST:
-				//printf("ctrl\n");
-				if (c == GET_CTRL_DATA_INDEX(dlProps.sequenceNumber) || c == C_DISC) {
+			case CTRL_ST:
+				if (c == GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)
+						|| c == C_DISC) {
 					ctrl = c;
 					i = BCC1_ST;
 				} else if (c == FLAG) {
@@ -196,13 +206,16 @@ int receiveData(int fd, unsigned char *buffer) {
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case BCC1_ST: ;
-				//printf("bcc\n");
-				// code for simulating error reception at header (it will produce generate a 
+			case BCC1_ST:
+				;
+				// code for simulating error reception at header (it will produce generate a
 				// timeout at the sender's side)
 				int prob = rand() % 100;
+
 				if (prob < dlProps.headerErrorRate) {
 					i = INIT_FLAG_ST;
+					log_info.event = DL_HER_GEN;
+					writeToLog(log_info);
 				} else {
 					// proceed with normal behaviour
 					if (c == (addr ^ ctrl)) {
@@ -214,8 +227,7 @@ int receiveData(int fd, unsigned char *buffer) {
 					}
 				}
 				break;
-				case DATA_ST:
-				//printf("data\n");
+			case DATA_ST:
 				if (c != FLAG) {
 					stuffed_data[data_counter] = c;
 					data_counter++;
@@ -231,35 +243,53 @@ int receiveData(int fd, unsigned char *buffer) {
 					} else {
 						// received data packet
 						unsigned int data_size = 0;
-						if ((data_size = byteDestuff(stuffed_data, data_counter, buffer)) == -1) {
+						if ((data_size = byteDestuff(stuffed_data, data_counter,
+								buffer)) == -1) {
 							return -1;
 						}
 
 						unsigned char bcc2_rec = buffer[data_size - 1];
 						unsigned char bcc2_act = 0;
-						genBCC2(buffer, data_size-1, &bcc2_act);
+						genBCC2(buffer, data_size - 1, &bcc2_act);
 
 						// code for simulating error reception at data
 						int prob = rand() % 100;
+
 						if (prob < dlProps.frameErrorRate) {
+
+							log_info.event = DL_FER_GEN;
+							writeToLog(log_info);
 							sendREJ(fd);
+
 							i = INIT_FLAG_ST;
 							data_counter = 0;
 						} else {
 							// proceed with normal behaviour
 							if (bcc2_rec == bcc2_act) {
-								dlProps.sequenceNumber = NEXT_DATA_INDEX(dlProps.sequenceNumber);
-								sendRR(fd);
-								return (data_size-1);
-							}
-							else {
-								if (ctrl != GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
-										//printf("rr3\n");
-										sendRR(fd);
-									} else {
-									//printf("rej\n");
-										sendREJ(fd);
-									}
+								if (ctrl
+										!= GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
+									sendRR(fd);
+									log_info.event = DL_SEND_NEXT_RR;
+									writeToLog(log_info);
+									i = INIT_FLAG_ST;
+									data_counter = 0;
+								} else {
+									dlProps.sequenceNumber =
+									NEXT_DATA_INDEX(dlProps.sequenceNumber);
+									sendRR(fd);
+									log_info.event = DL_SEND_CURR_RR;
+									writeToLog(log_info);
+									return (data_size - 1);
+								}
+							} else {
+								if (ctrl
+										!= GET_CTRL_DATA_INDEX(dlProps.sequenceNumber)) {
+									sendRR(fd);
+									log_info.event = DL_SEND_NEXT_RR;
+									writeToLog(log_info);
+								} else {
+									sendREJ(fd);
+								}
 								i = INIT_FLAG_ST;
 								data_counter = 0;
 							}
@@ -270,27 +300,28 @@ int receiveData(int fd, unsigned char *buffer) {
 			}
 		}
 	}
-	printf("FRAME RECEIVED\n");
+
 	return 0;
 }
 
 int initLinkProps(unsigned int port) {
 	if (port < 0 || port > 4) {
-		printf("Port selected is invalid. Please choose port between 0 and 4!\n");
+		printf(
+				"Port selected is invalid. Please choose port between 0 and 4!\n");
 		return -1;
 	}
 
 	sprintf(dlProps.port, "/dev/ttyS%d", port);
 
-	if (!isBaudDef) 
+	if (!isBaudDef)
 		dlProps.baudRate = B38400;
 	dlProps.sequenceNumber = 0;
 	if (!isTimeOutDef)
 		dlProps.timeout = 3;
-	if(!isNumTransmDef)
+	if (!isNumTransmDef)
 		dlProps.numTransmissions = 3;
 	dlProps.isOpen = -1;
-	if(!isHERDef)
+	if (!isHERDef)
 		dlProps.headerErrorRate = 0;
 	if (!isFERDef)
 		dlProps.frameErrorRate = 0;
@@ -347,13 +378,13 @@ int sendSetSupFrame(int fd) {
 
 	write(fd, SET, 5);
 
-	printf("\nSent SET\n");
+	log_info.event = DL_SENDING_SET;
+	writeToLog(log_info);
 
 	return 0;
 }
 
 void alarmListener(int sig) {
-	printf("alarm # %d\n", alarmCounter);
 	alarmFlag = 0;
 	alarmCounter++;
 }
@@ -403,55 +434,60 @@ int receiveUASupFrame(int fd, unsigned int status) {
 			}
 			alarmFlag = 1;
 			alarm(dlProps.timeout);
+			log_info.event = DL_TIMEOUT;
+			writeToLog(log_info);
 		}
 		if (read(fd, &c, 1)) {
 			switch (i) {
-				case INIT_FLAG_ST:
+			case INIT_FLAG_ST:
 				if (c == FLAG) {
 					i = ADDR_ST;
 				}
 				break;
-				case ADDR_ST:
+			case ADDR_ST:
 				if ((status == TRANSMITTER && c == ADDR_RECEIV_RESP)
-					|| (status == RECEIVER && c == ADDR_TRANSM_RESP)) {
+						|| (status == RECEIVER && c == ADDR_TRANSM_RESP)) {
 					addr = c;
-				i = CTRL_ST;
-			} else if (c != FLAG) {
-				i = INIT_FLAG_ST;
-			}
-			break;
+					i = CTRL_ST;
+				} else if (c != FLAG) {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			case CTRL_ST:
-			if (c == C_UA) {
-				ctrl = c;
-				i = BCC1_ST;
-			} else if (c == FLAG) {
-				i = ADDR_ST;
-			} else {
-				i = INIT_FLAG_ST;
-			}
-			break;
+				if (c == C_UA) {
+					ctrl = c;
+					i = BCC1_ST;
+				} else if (c == FLAG) {
+					i = ADDR_ST;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			case BCC1_ST:
-			if (c == (addr ^ ctrl)) {
-				i = END_FLAG_ST;
-			} else if (c == FLAG) {
-				i = ADDR_ST;
-			} else {
-				i = INIT_FLAG_ST;
-			}
-			break;
+				if (c == (addr ^ ctrl)) {
+					i = END_FLAG_ST;
+				} else if (c == FLAG) {
+					i = ADDR_ST;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			case END_FLAG_ST:
-			if (c == FLAG) {
-				stop = -1;
-			} else {
-				i = INIT_FLAG_ST;
+				if (c == FLAG) {
+					stop = -1;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			}
-			break;
 		}
+
 	}
-}
-printf("\nUA Received!\n");
-uninstallAlarmListener(old_sa);
-return 0;
+
+	log_info.event = DL_RECEIVED_UA;
+	writeToLog(log_info);
+	uninstallAlarmListener(old_sa);
+	return 0;
 }
 
 int closePortFile(int fd) {
@@ -472,18 +508,18 @@ int receiveSetSupFrame(int fd) {
 		unsigned char c = 0;
 		if (read(fd, &c, 1)) {
 			switch (i) {
-				case INIT_FLAG_ST:
+			case INIT_FLAG_ST:
 				if (c == FLAG)
 					i = ADDR_ST;
 				break;
-				case ADDR_ST:
+			case ADDR_ST:
 				if (c == ADDR_TRANSM) {
 					i = CTRL_ST;
 				} else if (c != FLAG) {
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case CTRL_ST:
+			case CTRL_ST:
 				if (c == C_SET) {
 					i = BCC1_ST;
 
@@ -493,7 +529,7 @@ int receiveSetSupFrame(int fd) {
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case BCC1_ST:
+			case BCC1_ST:
 				if (c == (ADDR_TRANSM ^ C_SET)) {
 					i = END_FLAG_ST;
 
@@ -503,7 +539,7 @@ int receiveSetSupFrame(int fd) {
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case END_FLAG_ST:
+			case END_FLAG_ST:
 				if (c == FLAG) {
 					stop = -1;
 
@@ -514,7 +550,6 @@ int receiveSetSupFrame(int fd) {
 			}
 		}
 	}
-	printf("\nSET successfully received\n");
 	return 0;
 }
 
@@ -530,7 +565,9 @@ int sendUASupFrame(int fd, unsigned int status) {
 	UA[4] = FLAG;
 
 	write(fd, UA, 5);
-	printf("\nSent UA\n");
+
+	log_info.event = DL_SEND_UA;
+	writeToLog(log_info);
 
 	return 0;
 }
@@ -547,7 +584,9 @@ int sendDiscSupFrame(int fd, unsigned int status) {
 	DISC[4] = FLAG;
 
 	write(fd, DISC, 5);
-	printf("\nSent DISC\n");
+
+	log_info.event = DL_SEND_DISC;
+	writeToLog(log_info);
 	return 0;
 }
 
@@ -557,7 +596,6 @@ int receiveDiscSupFrame(int fd, unsigned int status) {
 		// sets the alarm after defining the SIG_ALARM handler
 		old_sa = installAlarmListener();
 		alarm(dlProps.timeout);
-
 		// re-initializes the alarm variables
 		alarmFlag = 1;
 		alarmCounter = 0;
@@ -572,7 +610,8 @@ int receiveDiscSupFrame(int fd, unsigned int status) {
 		unsigned char c = 0;
 		if (status == TRANSMITTER) {
 			if (alarmCounter >= dlProps.numTransmissions) {
-				printf("Number of tries to receive package exceded. Exiting...\n");
+				printf(
+						"Number of tries to receive package exceded. Exiting...\n");
 				closePortFile(fd);
 				uninstallAlarmListener(old_sa);
 				return -1;
@@ -580,60 +619,65 @@ int receiveDiscSupFrame(int fd, unsigned int status) {
 				sendDiscSupFrame(fd, status);
 				alarmFlag = 1;
 				alarm(dlProps.timeout);
+				log_info.event = DL_TIMEOUT;
+				writeToLog(log_info);
+
 			}
 		}
 
 		if (read(fd, &c, 1)) {
 			switch (i) {
-				case INIT_FLAG_ST:
+			case INIT_FLAG_ST:
 				if (c == FLAG) {
 					i = ADDR_ST;
 				} else {
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case ADDR_ST:
+			case ADDR_ST:
 				if ((status == TRANSMITTER && c == ADDR_RECEIV_RESP)
-					|| (status == RECEIVER && c == ADDR_TRANSM)) {
+						|| (status == RECEIVER && c == ADDR_TRANSM)) {
 					addr = c;
-				i = CTRL_ST;
-			} else if (c == INIT_FLAG_ST) {
-				i = ADDR_ST;
-			}
-			break;
+					i = CTRL_ST;
+				} else if (c == INIT_FLAG_ST) {
+					i = ADDR_ST;
+				}
+				break;
 			case CTRL_ST:
-			if (c == C_DISC) {
-				ctrl = c;
-				i = BCC1_ST;
-			} else if (c == FLAG) {
-				i = ADDR_ST;
-			} else {
-				i = INIT_FLAG_ST;
-			}
-			break;
+				if (c == C_DISC) {
+					ctrl = c;
+					i = BCC1_ST;
+				} else if (c == FLAG) {
+					i = ADDR_ST;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			case BCC1_ST:
-			if (c == (addr ^ ctrl)) {
-				i = END_FLAG_ST;
-			} else if (c == FLAG) {
-				i = ADDR_ST;
-			} else {
-				i = INIT_FLAG_ST;
-			}
-			break;
+				if (c == (addr ^ ctrl)) {
+					i = END_FLAG_ST;
+				} else if (c == FLAG) {
+					i = ADDR_ST;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			case END_FLAG_ST:
-			if (c == FLAG) {
-				i++;
-				stop = -1;
-			} else {
-				i = INIT_FLAG_ST;
+				if (c == FLAG) {
+					i++;
+					stop = -1;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			}
-			break;
 		}
+
 	}
-}
-printf("\nDISC Received!\n");
-uninstallAlarmListener(old_sa);
-return 0;
+	log_info.event = DL_REC_DISC;
+	writeToLog(log_info);
+	uninstallAlarmListener(old_sa);
+	return 0;
 }
 
 int genBCC2(unsigned char * buffer, unsigned int length, unsigned char *bcc2) {
@@ -646,7 +690,8 @@ int genBCC2(unsigned char * buffer, unsigned int length, unsigned char *bcc2) {
 	return 0;
 }
 
-int byteStuff(unsigned char *buffer, unsigned int length, unsigned char *new_buffer) {
+int byteStuff(unsigned char *buffer, unsigned int length,
+		unsigned char *new_buffer) {
 
 	unsigned int stuff_pos = 0;
 	unsigned int i = 0;
@@ -676,10 +721,13 @@ int transmitData(int fd, unsigned char *data, unsigned int length) {
 	write(fd, data, length);
 	write(fd, &flag, 1);
 
+	log_info.event = DL_SENDING_DATA;
+	writeToLog(log_info);
 	return (length + 5);
 }
 
-int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned char bcc2) {
+int recReceiverResp(int fd, unsigned char *data, unsigned int length,
+		unsigned char bcc2) {
 
 	// sets the alarm after defining the SIG_ALARM handler
 	struct sigaction old_sa = installAlarmListener();
@@ -706,15 +754,17 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 			transmitData(fd, data, length);
 			alarmFlag = 1;
 			alarm(dlProps.timeout);
+			log_info.event = DL_TIMEOUT;
+			writeToLog(log_info);
 		}
 		if (read(fd, &c, 1)) {
 			switch (i) {
-				case INIT_FLAG_ST:
+			case INIT_FLAG_ST:
 				if (c == FLAG) {
 					i = ADDR_ST;
 				}
 				break;
-				case ADDR_ST:
+			case ADDR_ST:
 				if (ADDR_RECEIV_RESP) {
 					addr = c;
 					i = CTRL_ST;
@@ -722,56 +772,67 @@ int recReceiverResp(int fd, unsigned char *data, unsigned int length, unsigned c
 					i = INIT_FLAG_ST;
 				}
 				break;
-				case CTRL_ST:
-				if ((c == GET_CTRL_RECEIVER_READY_INDEX(NEXT_DATA_INDEX(dlProps.sequenceNumber)))
-					|| (c == GET_CTRL_RECEIVER_READY_INDEX(dlProps.sequenceNumber))
-					|| (c == GET_CTRL_RECEIVER_REJECT_INDEX(dlProps.sequenceNumber))) {
+			case CTRL_ST:
+				if ((c
+						== GET_CTRL_RECEIVER_READY_INDEX(NEXT_DATA_INDEX(dlProps.sequenceNumber)))
+						|| (c
+								== GET_CTRL_RECEIVER_READY_INDEX(dlProps.sequenceNumber))
+						|| (c
+								== GET_CTRL_RECEIVER_REJECT_INDEX(dlProps.sequenceNumber))) {
 					ctrl = c;
-				i = BCC1_ST;
-			} else if (c == FLAG) {
-				i = ADDR_ST;
-			} else {
-				i = INIT_FLAG_ST;
-			}
-			break;
-			case BCC1_ST:
-			if (c == (addr ^ ctrl)) {
-				i = END_FLAG_ST;
-			} else if (c == FLAG) {
-				i = ADDR_ST;
-			} else {
-				i = INIT_FLAG_ST;
-			}
-			break;
-			case END_FLAG_ST:
-			if (c == FLAG) {
-				if (ctrl == GET_CTRL_RECEIVER_READY_INDEX(NEXT_DATA_INDEX(dlProps.sequenceNumber))) {
-					printf("Receiver Ready Received!\n");
-					alarm(0);
-					stop = -1;
-				} else if (ctrl == GET_CTRL_RECEIVER_REJECT_INDEX(dlProps.sequenceNumber)) {
-					printf("\nReceiver Reject Received!\n");
-						transmitData(fd, data, length/*, bcc2*/);
-					i = INIT_FLAG_ST;
-					alarm(dlProps.timeout);
-				} else if (ctrl == GET_CTRL_RECEIVER_READY_INDEX(dlProps.sequenceNumber)) {
-					printf("\nRepeated packet sent. Sending next one.\n");
-					alarm(0);
-					stop = -1;
-				}
-				else {
+					i = BCC1_ST;
+				} else if (c == FLAG) {
 					i = ADDR_ST;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
+			case BCC1_ST:
+				if (c == (addr ^ ctrl)) {
+					i = END_FLAG_ST;
+				} else if (c == FLAG) {
+					i = ADDR_ST;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
+			case END_FLAG_ST:
+				if (c == FLAG) {
+					if (ctrl
+							== GET_CTRL_RECEIVER_READY_INDEX(NEXT_DATA_INDEX(dlProps.sequenceNumber))) {
+						alarm(0);
+						stop = -1;
+
+						log_info.event = DL_RECEIVED_NEXT_RR;
+						writeToLog(log_info);
+					} else if (ctrl
+							== GET_CTRL_RECEIVER_REJECT_INDEX(dlProps.sequenceNumber)) {
+						transmitData(fd, data, length);
+						i = INIT_FLAG_ST;
+						alarm(dlProps.timeout);
+
+						log_info.event = DL_RECEIVED_REJ;
+						writeToLog(log_info);
+					} else if (ctrl
+							== GET_CTRL_RECEIVER_READY_INDEX(dlProps.sequenceNumber)) {
+						alarm(0);
+						stop = -1;
+
+						log_info.event = DL_RECEIVED_CURR_RR;
+						writeToLog(log_info);
+					} else {
+						i = ADDR_ST;
 					}
-			} else {
-				i = INIT_FLAG_ST;
+				} else {
+					i = INIT_FLAG_ST;
+				}
+				break;
 			}
-			break;
 		}
 	}
-}
 
-uninstallAlarmListener(old_sa);
-return 0;
+	uninstallAlarmListener(old_sa);
+	return 0;
 }
 
 int sendRR(int fd) {
@@ -783,12 +844,15 @@ int sendRR(int fd) {
 	RR[4] = FLAG;
 
 	write(fd, RR, 5);
-	printf("Sent RR\n");
 
 	return 0;
 }
 
 int sendREJ(int fd) {
+
+	log_info.event = DL_SENDING_REJ;
+	writeToLog(log_info);
+
 	unsigned char REJ[5];
 	REJ[0] = FLAG;
 	REJ[1] = ADDR_RECEIV_RESP;
@@ -797,12 +861,12 @@ int sendREJ(int fd) {
 	REJ[4] = FLAG;
 
 	write(fd, REJ, 5);
-	printf("Sent REJ\n");
 
 	return 0;
 }
 
-int byteDestuff(unsigned char *buffer, unsigned int length, unsigned char *new_buffer) {
+int byteDestuff(unsigned char *buffer, unsigned int length,
+		unsigned char *new_buffer) {
 
 	unsigned int destuff_pos = 0;
 	unsigned int i = 0;
@@ -827,31 +891,45 @@ int byteDestuff(unsigned char *buffer, unsigned int length, unsigned char *new_b
 
 int setBaudRate(unsigned int baud) {
 	dlProps.baudRate = baud;
+	log_info.event = APP_BAUDRATE_DEF;
+	log_info.argi = baud;
+	writeToLog(log_info);
 	isBaudDef = -1;
 	return 0;
 }
 
-
 int setHeaderErrorRate(int rate) {
 	dlProps.headerErrorRate = rate;
 	isHERDef = -1;
+	log_info.event = APP_SET_HER;
+	log_info.argi = rate;
+	writeToLog(log_info);
 	return 0;
 }
 
 int setFrameErrorRate(int rate) {
 	dlProps.frameErrorRate = rate;
 	isFERDef = -1;
+	log_info.event = APP_SET_FER;
+	log_info.argi = rate;
+	writeToLog(log_info);
 	return 0;
 }
 
 int setTimeOut(int to) {
 	dlProps.timeout = to;
+	log_info.event = APP_TIMEOUT_DEF;
+	log_info.argi = to;
+	writeToLog(log_info);
 	isTimeOutDef = -1;
 	return 0;
 }
 
-int setNumTransm(int n)  {
+int setNumTransm(int n) {
 	dlProps.numTransmissions = n;
+	log_info.event = APP_NUMRETRANSM_DEF;
+	log_info.argi = n;
+	writeToLog(log_info);
 	isNumTransmDef = -1;
 	return 0;
 }
