@@ -1,6 +1,6 @@
 # macros definitions
 CC = gcc
-CFLAGS = -Wall -pthread -lrt
+CFLAGS = -Wall -pthread -lrt -lm
 XHDRS = macros.h
 
 all: rcom_proj
@@ -13,6 +13,9 @@ Application.o: Application.c $(XHDRS)
 
 DataLinkProt.o: DataLinkProt.c $(XHDRS)
 	$(CC) -c DataLinkProt.h DataLinkProt.c $(XHDRS) $(CFLAGS)
+
+log.o: log.c $(XHDRS)
+	$(CC) -c log.h log.c $(XHDRS) $(CFLAGS)
 
 clean:
 	rm -f *.gch *.o rcom_proj

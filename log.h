@@ -1,11 +1,13 @@
 #ifndef LOG_H_
 #define LOG_H_
 
+#include <termios.h>
+#include "macros.h"
+
 typedef struct {
-	int fd;
 	int event;
-	int argc;
-	char **argv;
+	int argi;
+	char args[MAX_STRING_SIZE];
 } log_info_t;
 
 typedef enum {
@@ -15,5 +17,7 @@ typedef enum {
 	APP_SENDING_FINALPACKET, APP_CLOSING_SER_PORT, APP_CLOSING_FILE, APP_T_SUCCESS, APP_T_FAILURE, APP_SET_HER, APP_SET_FER, APP_SET_DESTFOLD, APP_RECEIV_INITPACK,
 	APP_OPENED_DESTFILE, DL_DATA_VERIFIED, DL_HER_GEN, DL_FER_GEN, DL_SENDING_REJ, DL_SEND_CURR_RR, DL_SEND_NEXT_RR, APP_DEST_FILE_DELETED, APP_WRITE_FILE, APP_FILE_NONVALID
 } log_events_t;
+
+void *writeToLog(log_info_t *info);
 
 #endif
