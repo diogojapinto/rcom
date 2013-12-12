@@ -1,2 +1,0 @@
-#!/bin/bash
-arp -d $1

@@ -1,5 +1,0 @@
-#!/bin/bash
-route -n
-echo
-arp -a
-echo
