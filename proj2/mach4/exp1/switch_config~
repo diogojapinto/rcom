@@ -1,0 +1,30 @@
+--> clean configurations
+configure terminal
+no vlan 2-4094 (?)
+end
+copy flash:tuxY-clean startup-config
+reload
+
+--> create vlan
+configure terminal
+vlan Y0
+end
+
+--> delete vlan
+configure terminal
+no vlan Y0
+end
+
+--> add port to vlan
+configure terminal
+interface fastethernet 0/(Port)
+switchport mode access
+switchport access vlan Y0
+end
+
+--> show something random
+show running-config interface fastethernet 0/(Port)
+shwo interfaces fastethernet 0/(Port) switchport
+
+--> show vlans
+show vlan brief

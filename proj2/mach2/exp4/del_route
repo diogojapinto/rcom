@@ -1,0 +1,5 @@
+#!/bin/bash
+route del -net $1 netmask $3 gw $2 $4
+echo
+route -n
+echo

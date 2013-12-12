@@ -1,0 +1,5 @@
+#!/bin/bash
+route add -net 172.16."$1"0.0/24 gw 172.16."$1"1.253 eth0
+echo
+route -n
+echo

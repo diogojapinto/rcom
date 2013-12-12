@@ -1,0 +1,5 @@
+#!/bin/bash
+route add default gw $1
+echo
+route -n
+echo

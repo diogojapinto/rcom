@@ -1,0 +1,6 @@
+#!/bin/bash
+echo
+route -n
+echo
+arp -a
+echo

@@ -1,0 +1,11 @@
+#!/bin/bash
+BANC=4
+
+/etc/init.d/networking restart
+ifconfig eth0 up
+ifconfig eth0 172.16."$BANC"1.1/62
+echo 1 > /proc/sys/net/ipv4/ip_forward
+echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
+echo
+ifconfig
+echo

@@ -1,0 +1,7 @@
+#!/bin/bash
+BANC=4
+ifconfig eth1 up
+ifconfig eth1 172.16."$BANC"1.253/24
+echo
+ifconfig
+echo
