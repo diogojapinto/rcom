@@ -15,6 +15,9 @@
 #include <fcntl.h>
 #include <libgen.h>
 
+#define DEFAULT_USERNAME "anonymous"
+#define DEFAULT_PASSWORD "PASS"
+
 #define MAX_STR_LEN 256
 #define WITH_AUTENTICATION 0
 #define WITHOUT_AUTENTICATION 1
@@ -24,7 +27,7 @@
 #define ENTERED_PASSIVE_MODE 227
 #define STARTED_CONNECTION 220
 #define INPUT_PASSWORD 331
-#define LOGGIN_SUCCESS 230
+#define LOGIN_SUCCESS 230
 #define TRANSFER_COMPLETE 226
 
 #define FTP_SERVER_PORT 21
@@ -43,7 +46,7 @@ typedef struct saveFileInfo {
 struct hostent *fillHostInfo(char host[]);
 
 int connectToPort(struct hostent *host, int port);
-int loggin(int sockfd, session_t *sess);
+int login(int sockfd, session_t *sess);
 int retrDestPort(int srcSocket);
 int sendFileRequest(int srcSocket, char *urlPath);
 int verifyTransfer(int srcSocket);
@@ -67,6 +70,8 @@ int main(int argc, char *argv[]) {
 		method = WITH_AUTENTICATION;
 	} else if (sscanf(argv[1], "ftp://%[^/]/%s", host, url_path) == 2) {
 		method = WITHOUT_AUTENTICATION;
+		strcpy(session.user, DEFAULT_USERNAME);
+		strcpy(session.pass, DEFAULT_PASSWORD);
 	} else {
 		printf(
 				"Invalid URL!\nUsage: ftp://[<user>:<password>@]<host>/<url-path>\n");
@@ -77,6 +82,7 @@ int main(int argc, char *argv[]) {
 		printf("%-20s: %s\n", "Username", session.user);
 		printf("%-20s: %s\n", "Password", session.pass);
 	}
+
 	printf("%-20s: %s\n", "Host Name", host);
 	printf("%-20s: %s\n\n", "Url Path", url_path);
 
@@ -84,9 +90,7 @@ int main(int argc, char *argv[]) {
 
 	int src_sockfd = connectToPort(host_info, FTP_SERVER_PORT);
 
-	if (method == WITH_AUTENTICATION) {
-		loggin(src_sockfd, &session);
-	}
+	login(src_sockfd, &session);
 
 	int dest_port = retrDestPort(src_sockfd);
 
@@ -169,18 +173,23 @@ int connectToPort(struct hostent *host, int port) {
 
 	if (port == FTP_SERVER_PORT) {
 		char resp[MAX_STR_LEN];
-		int i = 0;
-
-		do {
-			read(sockfd, &resp[i++], 1);
-		} while (i < MAX_STR_LEN && resp[i - 1] != '\n');
-
-		resp[i] = '\0';
 
 		int mess_code = 0;
-		sscanf(resp, "%d %*[^\n]\n", &mess_code);
+		char chr = 0;
+		do {
+			int i = 0;
+			do {
+				read(sockfd, &resp[i++], 1);
+			} while (i < MAX_STR_LEN && resp[i - 1] != '\n');
 
-		printf("%-20s: %s\n\n", "Message received", resp);
+			resp[i] = '\0';
+			chr = 0;
+			mess_code = 0;
+			sscanf(resp, "%d%c%*[^\n]\n", &mess_code, &chr);
+
+			printf("%-20s: %s\n\n", "Message received", resp);
+
+		} while (chr == '-');
 
 		if (mess_code != STARTED_CONNECTION) {
 			printf("Error opening connection!\n");
@@ -192,7 +201,7 @@ int connectToPort(struct hostent *host, int port) {
 	return sockfd;
 }
 
-int loggin(int sockfd, session_t *sess) {
+int login(int sockfd, session_t *sess) {
 
 	char messg[MAX_STR_LEN];
 	char resp[MAX_STR_LEN];
@@ -214,7 +223,7 @@ int loggin(int sockfd, session_t *sess) {
 	sscanf(resp, "%d %*[^\n]\n", &mess_code);
 
 	if (mess_code != INPUT_PASSWORD) {
-		printf("Error logging in!\nPassword not prompted\n");
+		printf("Error loging in!\nPassword not prompted\n");
 		exit(-1);
 	}
 
@@ -222,20 +231,25 @@ int loggin(int sockfd, session_t *sess) {
 	printf("%-20s: %s\n", "Message sent", messg);
 	write(sockfd, messg, strlen(messg));
 
-	i = 0;
-	do {
-		read(sockfd, &resp[i++], 1);
-	} while (i < MAX_STR_LEN && resp[i - 1] != '\n');
-
-	resp[i] = '\0';
-
-	printf("%-20s: %s\n\n", "Message received", resp);
-
 	mess_code = 0;
-	sscanf(resp, "%d %*[^\n]\n", &mess_code);
+	char chr = 0;
+	do {
+		int i = 0;
+		do {
+			read(sockfd, &resp[i++], 1);
+		} while (i < MAX_STR_LEN && resp[i - 1] != '\n');
 
-	if (mess_code != LOGGIN_SUCCESS) {
-		printf("Error logging in!\n");
+		resp[i] = '\0';
+		chr = 0;
+		mess_code = 0;
+		sscanf(resp, "%d%c%*[^\n]\n", &mess_code, &chr);
+
+		printf("%-20s: %s\n\n", "Message received", resp);
+
+	} while (chr == '-');
+
+	if (mess_code != LOGIN_SUCCESS) {
+		printf("Error loging in!\n");
 		exit(-1);
 	}
 
