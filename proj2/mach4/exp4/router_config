@@ -12,7 +12,7 @@ exit
 
 configure terminal
 interface fastethernet 0/1
-ip address 172.16.1.(BANC)9 255.255.255.0
+ip address 172.16.(LAB).(BANC)9 255.255.255.0
 no shutdown
 ip nat outside
 exit
@@ -27,3 +27,7 @@ ip route 0.0.0.0 0.0.0.0 172.16.(LAB).254
 ip route 172.16.(BANC)0.0 255.255.255.0 172.16.(BANC)1.253
 
 show interface fastethernet 0/0
+
+show ip route
+
+show access-lists
